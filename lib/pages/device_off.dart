@@ -5,6 +5,7 @@ import 'package:eggie2/pages/sleep_log.dart';
 import 'package:eggie2/pages/useful_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DeviceOff extends StatefulWidget {
   const DeviceOff({super.key});
@@ -410,8 +411,35 @@ class _buildDeviceLog extends StatelessWidget {
   }
 }
 
-class _buildDeviceStatus extends StatelessWidget {
+class _buildDeviceStatus extends StatefulWidget {
   const _buildDeviceStatus({super.key});
+
+  @override
+  State<_buildDeviceStatus> createState() => _buildDeviceStatusState();
+}
+
+class _buildDeviceStatusState extends State<_buildDeviceStatus> {
+  // 디바이스를 켤 때 상태 저장
+  Future<void> _turnOnDevice() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 디바이스 켜짐 상태 저장
+    await prefs.setBool('device_on', true);
+
+    // 이전 수면 데이터 초기화 (새로운 세션 시작)
+    await prefs.remove('sleep_end_time');
+    await prefs.remove('sleep_end_time_korean');
+
+    print('Device turned on and previous sleep data cleared');
+
+    // mode_off 페이지로 이동
+    if (mounted) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ModeOffPage()),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -430,12 +458,7 @@ class _buildDeviceStatus extends StatelessWidget {
               width: 48,
               height: 48,
             ),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ModeOffPage()),
-              );
-            },
+            onPressed: _turnOnDevice, // 상태 저장 후 페이지 이동
           ),
         ],
       ),

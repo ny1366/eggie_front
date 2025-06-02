@@ -22,6 +22,11 @@ class _ModeOffPageState extends State<ModeOffPage> {
   bool isNightAuto = true; // 밤잠 모드의 자동 상태
   bool _isLogExpanded = false; // 로그 펼침 상태 관리
 
+  // 수면 시간 변수들
+  String? sleepStartTime; // 수면 시작 시간
+  String? sleepEndTime; // 수면 종료 시간
+  String sleepDuration = '1시간 2분'; // 수면 시간 (계산된 값)
+
   final Map<String, List<String>> optionValues = {
     'temp': ['18°C', '19°C', '20°C', '21°C'],
     'humidity': ['20%', '30%', '40%', '50%'],
@@ -50,6 +55,9 @@ class _ModeOffPageState extends State<ModeOffPage> {
 
     // 페이지 로드 후 바텀 시트 표시
     if (widget.showStopModal) {
+      // 수면 시간 불러오기
+      _loadSleepTimes();
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Future.delayed(const Duration(milliseconds: 300), () {
           if (mounted) {
@@ -86,6 +94,81 @@ class _ModeOffPageState extends State<ModeOffPage> {
     await prefs.setBool('isNightAuto', isNightAuto);
   }
 
+  // 모드 시작 시간을 SharedPreferences에 저장하기
+  Future<void> _saveModeStartTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final now = DateTime.now();
+    final modeType = isNap ? 'day' : 'night';
+
+    // 현재 시간을 ISO 8601 형식으로 저장
+    await prefs.setString('${modeType}_start_time', now.toIso8601String());
+
+    // 추가적으로 모드 타입도 저장
+    await prefs.setString('current_mode_type', modeType);
+    await prefs.setBool('current_mode_auto', isAuto);
+
+    // 수면 세션 활성화
+    await prefs.setBool('sleep_session_active', true);
+
+    print('Mode start time saved: $modeType at ${now.toIso8601String()}');
+    print('Sleep session activated');
+  }
+
+  // 저장된 수면 시간들을 불러오기
+  Future<void> _loadSleepTimes() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    try {
+      // 1. 수면 시작 시간 불러오기
+      final modeType =
+          prefs.getString('current_mode_type') ?? (isNap ? 'day' : 'night');
+      final startTimeString = prefs.getString('${modeType}_start_time');
+
+      if (startTimeString != null) {
+        final startTime = DateTime.parse(startTimeString);
+        sleepStartTime = _formatTimeToKorean(startTime);
+      }
+
+      // 2. 수면 종료 시간 불러오기
+      final endTimeKorean = prefs.getString('sleep_end_time_korean');
+      if (endTimeKorean != null) {
+        sleepEndTime = endTimeKorean;
+      }
+
+      // 3. 수면 시간 차이 계산
+      await _calculateSleepDuration();
+
+      setState(() {}); // UI 업데이트
+    } catch (e) {
+      print('Error loading sleep times: $e');
+    }
+  }
+
+  // DateTime을 한국어 시간 형식으로 변환 (오후 HH:MM)
+  String _formatTimeToKorean(DateTime dateTime) {
+    final hour = dateTime.hour;
+    final minute = dateTime.minute;
+
+    String period;
+    int displayHour;
+
+    if (hour == 0) {
+      period = '오전';
+      displayHour = 12;
+    } else if (hour < 12) {
+      period = '오전';
+      displayHour = hour;
+    } else if (hour == 12) {
+      period = '오후';
+      displayHour = 12;
+    } else {
+      period = '오후';
+      displayHour = hour - 12;
+    }
+
+    return '$period ${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+  }
+
   // 현재 선택된 모드(낮잠/밤잠)에 따라 자동/수동 여부를 설정하고 저장하기
   bool get isAuto => isNap ? isNapAuto : isNightAuto;
   set isAuto(bool value) {
@@ -104,6 +187,61 @@ class _ModeOffPageState extends State<ModeOffPage> {
     setState(() {
       isNap = isNapMode;
     });
+  }
+
+  // 수면 시간 계산 메서드
+  Future<void> _calculateSleepDuration() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    try {
+      // 1. 수면 시작 시간 가져오기 (ISO format)
+      final modeType =
+          prefs.getString('current_mode_type') ?? (isNap ? 'day' : 'night');
+      final startTimeString = prefs.getString('${modeType}_start_time');
+
+      // 2. 수면 종료 시간 가져오기 (ISO format)
+      final endTimeString = prefs.getString('sleep_end_time');
+
+      if (startTimeString != null && endTimeString != null) {
+        final startTime = DateTime.parse(startTimeString);
+        final endTime = DateTime.parse(endTimeString);
+
+        // 3. 시간 차이 계산
+        final duration = endTime.difference(startTime);
+
+        // 4. 시간, 분으로 변환
+        final hours = duration.inHours;
+        final minutes = duration.inMinutes % 60;
+
+        // 5. 한국어 형식으로 변환
+        String durationText = '';
+        if (hours > 0 && minutes > 0) {
+          durationText = '${hours}시간 ${minutes}분';
+        } else if (hours > 0) {
+          durationText = '${hours}시간';
+        } else if (minutes > 0) {
+          durationText = '${minutes}분';
+        } else {
+          durationText = '1분 미만';
+        }
+
+        setState(() {
+          sleepDuration = durationText;
+        });
+
+        print('Sleep duration calculated: $durationText');
+        print('  - Start: ${startTime.toIso8601String()}');
+        print('  - End: ${endTime.toIso8601String()}');
+        print('  - Duration: ${duration.inMinutes} minutes');
+      } else {
+        print('Start or end time not found in SharedPreferences');
+      }
+    } catch (e) {
+      print('Error calculating sleep duration: $e');
+      setState(() {
+        sleepDuration = '계산 오류';
+      });
+    }
   }
 
   @override
@@ -680,7 +818,21 @@ class _ModeOffPageState extends State<ModeOffPage> {
               width: 48,
               height: 48,
             ),
-            onPressed: () {
+            onPressed: () async {
+              // 디바이스 끄기 상태 저장
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('device_on', false);
+
+              // 모든 수면 관련 데이터 초기화
+              await prefs.remove('current_mode_type');
+              await prefs.remove('day_start_time');
+              await prefs.remove('night_start_time');
+              await prefs.remove('sleep_end_time');
+              await prefs.remove('sleep_end_time_korean');
+              await prefs.setBool('sleep_session_active', false);
+
+              print('Device turned off and all sleep data cleared');
+
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const DeviceOff()),
@@ -834,10 +986,10 @@ class _ModeOffPageState extends State<ModeOffPage> {
                     borderRadius: BorderRadius.circular(16),
                   ),
                   width: double.infinity,
-                  child: const Column(
+                  child: Column(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      Text(
+                      const Text(
                         '수면 종료',
                         style: TextStyle(
                           fontSize: 16,
@@ -846,20 +998,20 @@ class _ModeOffPageState extends State<ModeOffPage> {
                           fontWeight: FontWeight.w400,
                         ),
                       ),
-                      SizedBox(height: 6),
+                      const SizedBox(height: 6),
                       Text(
-                        '1시간 2분', // 👉 TODO: 실제 수면 시간 계산 필요
-                        style: TextStyle(
+                        sleepDuration, // 실제 계산된 수면 시간
+                        style: const TextStyle(
                           fontSize: 32,
                           height: 24 / 32,
                           fontWeight: FontWeight.w500,
                           color: Color(0xFF111111),
                         ),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
-                        '오전 9:38 - 오전 10:40', // 👉 TODO: 실제 시간으로 치환
-                        style: TextStyle(
+                        '${sleepStartTime ?? '오전 09:38'} - ${sleepEndTime ?? '오전 10:40'}', // 실제 수면 시간
+                        style: const TextStyle(
                           fontSize: 14,
                           height: 24 / 14,
                           color: Color(0xFF606C80),
@@ -918,19 +1070,17 @@ class _ModeOffPageState extends State<ModeOffPage> {
       ),
     );
   }
-}
 
-class _buildModeStartBTN extends StatelessWidget {
-  const _buildModeStartBTN({super.key});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildModeStartBTN() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: SizedBox(
         height: 44,
         child: ElevatedButton.icon(
           onPressed: () {
+            // 모드 시작 시간을 DB에 저장
+            _saveModeStartTime();
+
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => const ModeOnPage()),

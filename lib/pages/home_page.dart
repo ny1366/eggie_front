@@ -1,5 +1,9 @@
+import 'package:eggie2/pages/device_off.dart';
+import 'package:eggie2/pages/mode_off.dart';
+import 'package:eggie2/pages/mode_on.dart';
 import 'package:eggie2/widgets/bottom_nav_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -28,8 +32,26 @@ class HomePage extends StatelessWidget {
   }
 }
 
-class HomeContent extends StatelessWidget {
+class HomeContent extends StatefulWidget {
   const HomeContent({super.key});
+
+  @override
+  State<HomeContent> createState() => _HomeContentState();
+}
+
+class _HomeContentState extends State<HomeContent> {
+  final GlobalKey<_DeviceShortcutState> _eggieShortcutKey =
+      GlobalKey<_DeviceShortcutState>();
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 페이지가 다시 포커스될 때 EGGie 디바이스 상태 새로고침
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _eggieShortcutKey.currentState?.loadDeviceStatus();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Column(
@@ -59,12 +81,13 @@ class HomeContent extends StatelessWidget {
         Wrap(
           spacing: 12,
           runSpacing: 12,
-          children: const [
-            _DeviceShortcut(
+          children: [
+            const _DeviceShortcut(
               icon: 'assets/images/home_washer.png',
               label: '세탁기',
             ),
             _DeviceShortcut(
+              key: _eggieShortcutKey, // EGGie 디바이스에 키 추가
               icon: 'assets/images/EGGie_device.png',
               label: 'EGGie',
             ),
@@ -124,38 +147,120 @@ class HomeContent extends StatelessWidget {
   }
 }
 
-class _DeviceShortcut extends StatelessWidget {
+class _DeviceShortcut extends StatefulWidget {
   final String icon;
   final String label;
-  const _DeviceShortcut({required this.icon, required this.label});
+  const _DeviceShortcut({super.key, required this.icon, required this.label});
+
+  @override
+  State<_DeviceShortcut> createState() => _DeviceShortcutState();
+}
+
+class _DeviceShortcutState extends State<_DeviceShortcut> {
+  // EGGie 디바이스인지 확인
+  bool get isEggieDevice => widget.label == 'EGGie';
+
+  // EGGie 디바이스 상태 관리 (다른 디바이스는 상태 관리 안함)
+  bool isDeviceOn = false;
+  bool isSleeping = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (isEggieDevice) {
+      loadDeviceStatus();
+    }
+  }
+
+  // 디바이스 상태 불러오기 (EGGie만)
+  Future<void> loadDeviceStatus() async {
+    if (!isEggieDevice) return;
+
+    final prefs = await SharedPreferences.getInstance();
+
+    // 디바이스 켜짐/꺼짐 상태 확인
+    final deviceOn = prefs.getBool('device_on') ?? false;
+
+    // 수면 상태 확인 (수면 시작 시간이 있으면 켜진 상태)
+    final currentModeType = prefs.getString('current_mode_type');
+    final hasSleepStartTime =
+        currentModeType != null &&
+        prefs.getString('${currentModeType}_start_time') != null;
+
+    // 수면 세션 상태 확인 (실제로 현재 수면 중인지)
+    final isSleepSessionActive = prefs.getBool('sleep_session_active') ?? false;
+
+    setState(() {
+      isDeviceOn = deviceOn || hasSleepStartTime; // 수면 시작했으면 디바이스 켜진 것으로 간주
+
+      if (!isDeviceOn) {
+        // 디바이스가 꺼져있으면
+        isSleeping = false;
+      } else {
+        // 수면 세션이 활성화되어 있으면 수면 중
+        isSleeping = isSleepSessionActive;
+      }
+    });
+
+    print('Home page device status loaded:');
+    print('  - Device on: $isDeviceOn');
+    print('  - Sleep session active: $isSleepSessionActive');
+    print('  - Is sleeping: $isSleeping');
+  }
+
+  // EGGie 디바이스 탭했을 때 적절한 페이지로 이동
+  void _onEggieDeviceTap() {
+    if (!isDeviceOn) {
+      // 디바이스가 꺼져있으면 device_off 페이지로
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const DeviceOff()),
+      );
+    } else if (isSleeping) {
+      // 디바이스가 켜져있고 수면 중이면 mode_on 페이지로
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ModeOnPage()),
+      );
+    } else {
+      // 디바이스가 켜져있고 수면 완료 상태면 mode_off 페이지로
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const ModeOffPage()),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 135,
-          height: 60,
-          decoration: BoxDecoration(
-            color: const Color(0xFFC1D2DC),
-            borderRadius: BorderRadius.circular(20),
-          ),
-          child: Center(
-            child: Image.asset(
-              icon,
-              width: 40,
-              height: 40,
-              fit: BoxFit.contain,
+    return GestureDetector(
+      onTap: isEggieDevice ? _onEggieDeviceTap : null, // EGGie만 탭 이벤트 추가
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 135,
+            height: 60,
+            decoration: BoxDecoration(
+              color: const Color(0xFFC1D2DC),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Center(
+              child: Image.asset(
+                widget.icon,
+                width: 40,
+                height: 40,
+                fit: BoxFit.contain,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14, color: Color(0xFF111111)),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            widget.label,
+            style: const TextStyle(fontSize: 14, color: Color(0xFF111111)),
+          ),
+        ],
+      ),
     );
   }
 }

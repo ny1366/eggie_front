@@ -1,6 +1,9 @@
 import 'package:eggie2/pages/device_off.dart';
+import 'package:eggie2/pages/mode_off.dart';
+import 'package:eggie2/pages/mode_on.dart';
 import 'package:eggie2/widgets/bottom_nav_bar.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class DevicePage extends StatelessWidget {
   const DevicePage({super.key});
@@ -39,8 +42,93 @@ class DevicePage extends StatelessWidget {
   }
 }
 
-class _DeviceContent extends StatelessWidget {
+class _DeviceContent extends StatefulWidget {
   const _DeviceContent({super.key});
+
+  @override
+  State<_DeviceContent> createState() => _DeviceContentState();
+}
+
+class _DeviceContentState extends State<_DeviceContent> {
+  // 디바이스 상태 관리
+  bool isDeviceOn = false; // 디바이스 켜짐/꺼짐 상태
+  bool isSleeping = false; // 수면 중인지 여부 (켜진 상태에서만 의미있음)
+  String deviceStatus = '꺼짐'; // 표시될 상태 텍스트
+
+  @override
+  void initState() {
+    super.initState();
+    _loadDeviceStatus();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 페이지가 다시 포커스될 때 상태 새로고침
+    _loadDeviceStatus();
+  }
+
+  // 디바이스 상태 불러오기
+  Future<void> _loadDeviceStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    // 디바이스 켜짐/꺼짐 상태 확인
+    final deviceOn = prefs.getBool('device_on') ?? false;
+
+    // 수면 상태 확인 (수면 시작 시간이 있으면 켜진 상태)
+    final currentModeType = prefs.getString('current_mode_type');
+    final hasSleepStartTime =
+        currentModeType != null &&
+        prefs.getString('${currentModeType}_start_time') != null;
+
+    // 수면 세션 상태 확인 (실제로 현재 수면 중인지)
+    final isSleepSessionActive = prefs.getBool('sleep_session_active') ?? false;
+
+    setState(() {
+      isDeviceOn = deviceOn || hasSleepStartTime; // 수면 시작했으면 디바이스 켜진 것으로 간주
+
+      if (!isDeviceOn) {
+        // 디바이스가 꺼져있으면
+        deviceStatus = '꺼짐';
+        isSleeping = false;
+      } else {
+        // 디바이스가 켜져있으면
+        deviceStatus = '켜짐';
+
+        // 수면 세션이 활성화되어 있으면 수면 중
+        isSleeping = isSleepSessionActive;
+      }
+    });
+
+    print('Device status loaded:');
+    print('  - Device on: $isDeviceOn');
+    print('  - Sleep session active: $isSleepSessionActive');
+    print('  - Is sleeping: $isSleeping');
+    print('  - Status text: $deviceStatus');
+  }
+
+  // EGGie 디바이스 탭했을 때 적절한 페이지로 이동
+  void _onEggieDeviceTap() {
+    if (!isDeviceOn) {
+      // 디바이스가 꺼져있으면 device_off 페이지로
+      Navigator.of(
+        context,
+        rootNavigator: true,
+      ).push(MaterialPageRoute(builder: (context) => const DeviceOff()));
+    } else if (isSleeping) {
+      // 디바이스가 켜져있고 수면 중이면 mode_on 페이지로
+      Navigator.of(
+        context,
+        rootNavigator: true,
+      ).push(MaterialPageRoute(builder: (context) => const ModeOnPage()));
+    } else {
+      // 디바이스가 켜져있고 수면 완료 상태면 mode_off 페이지로
+      Navigator.of(
+        context,
+        rootNavigator: true,
+      ).push(MaterialPageRoute(builder: (context) => const ModeOffPage()));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,13 +143,8 @@ class _DeviceContent extends StatelessWidget {
       ],
     );
   }
-}
 
-class _buildDeviceList extends StatelessWidget {
-  const _buildDeviceList({super.key});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildDeviceList() {
     return Wrap(
       spacing: 12,
       runSpacing: 12,
@@ -86,12 +169,8 @@ class _buildDeviceList extends StatelessWidget {
             child: _DeviceCard(
               image: 'assets/images/EGGie_device.png',
               title: 'EGGie',
-              subtitle: '꺼짐',
-              onTap: () {
-                Navigator.of(context, rootNavigator: true).push(
-                  MaterialPageRoute(builder: (context) => const DeviceOff()),
-                );
-              },
+              subtitle: deviceStatus, // 동적으로 계산된 상태
+              onTap: _onEggieDeviceTap, // 동적 네비게이션
             ),
           ),
         ),

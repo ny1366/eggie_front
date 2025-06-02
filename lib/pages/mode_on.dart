@@ -31,6 +31,22 @@ class _ModeOnPageState extends State<ModeOnPage> {
   SleepStatus currentSleepStatus = SleepStatus.sleeping;
   Timer? _statusCheckTimer;
 
+  // 수면 시간 관리
+  Timer? _sleepTimer; // 실시간 남은 시간 계산용 타이머
+  DateTime? sleepStartDateTime; // 수면 시작 시간 (DateTime)
+  DateTime? sleepExpectedEndDateTime; // 예상 수면 완료 시간 (DateTime)
+  String remainingTimeText = '00:00:00 남음'; // 남은 시간 텍스트 (HH:MM:SS 형식)
+  double sleepProgress = 0.0; // 수면 진행률 (0.0 ~ 1.0)
+
+  // 수면 시작 시간 (= 모드 시작 버튼 누르고 생성된 값)
+  String? sleepStartTime;
+
+  // 예상 수면 완료 시간 (= DB에서 가져올 값)
+  String sleepExpectedEndTime = '오후 8:00'; // 👉 TODO: DB에서 수면 완료 예상 시간 불러오기
+
+  // 수면 종료 시간
+  String? sleepEndTime;
+
   final Map<String, List<String>> optionValues = {
     'temp': ['18°C', '19°C', '20°C', '21°C'],
     'humidity': ['20%', '30%', '40%', '50%'],
@@ -62,6 +78,7 @@ class _ModeOnPageState extends State<ModeOnPage> {
   @override
   void dispose() {
     _statusCheckTimer?.cancel(); // 타이머 정리
+    _sleepTimer?.cancel(); // 수면 타이머 정리
     super.dispose();
   }
 
@@ -82,6 +99,62 @@ class _ModeOnPageState extends State<ModeOnPage> {
       isNapAuto = prefs.getBool('isNapAuto') ?? true;
       isNightAuto = prefs.getBool('isNightAuto') ?? true;
     });
+
+    // 저장된 수면 시작 시간 불러오기
+    await _loadSleepStartTime();
+  }
+
+  // 저장된 수면 시작 시간 불러오기
+  Future<void> _loadSleepStartTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final modeType =
+        prefs.getString('current_mode_type') ?? (isNap ? 'day' : 'night');
+
+    final startTimeString = prefs.getString('${modeType}_start_time');
+
+    if (startTimeString != null) {
+      try {
+        final startTime = DateTime.parse(startTimeString);
+        setState(() {
+          sleepStartTime = _formatTimeToKorean(startTime);
+          sleepStartDateTime = startTime; // DateTime 설정
+        });
+
+        // 수면 타이머 시작
+        _startSleepTimer();
+      } catch (e) {
+        print('Error parsing start time: $e');
+        setState(() {
+          sleepStartTime = null;
+          sleepStartDateTime = null;
+        });
+      }
+    }
+  }
+
+  // DateTime을 한국어 시간 형식으로 변환
+  String _formatTimeToKorean(DateTime dateTime) {
+    final hour = dateTime.hour;
+    final minute = dateTime.minute;
+
+    String period;
+    int displayHour;
+
+    if (hour == 0) {
+      period = '오전';
+      displayHour = 12;
+    } else if (hour < 12) {
+      period = '오전';
+      displayHour = hour;
+    } else if (hour == 12) {
+      period = '오후';
+      displayHour = 12;
+    } else {
+      period = '오후';
+      displayHour = hour - 12;
+    }
+
+    return '$period ${displayHour}:${minute.toString().padLeft(2, '0')}';
   }
 
   // 각 모드의 자동/수동 설정을 SharedPreferences에 저장하기
@@ -151,6 +224,141 @@ class _ModeOnPageState extends State<ModeOnPage> {
         builder: (context) => const ModeOffPage(showStopModal: true),
       ),
     );
+  }
+
+  // 예상 완료 시간 문자열을 DateTime으로 변환
+  DateTime _parseExpectedEndTime(String timeString) {
+    final now = DateTime.now();
+
+    // "오후 8:00" 형식 파싱
+    final isAfternoon = timeString.contains('오후');
+    final timepart = timeString.replaceAll('오전 ', '').replaceAll('오후 ', '');
+    final timeParts = timepart.split(':');
+
+    if (timeParts.length != 2) {
+      // 파싱 실패시 기본값 (오후 8:00)
+      return DateTime(now.year, now.month, now.day, 20, 0);
+    }
+
+    int hour = int.tryParse(timeParts[0]) ?? 20;
+    int minute = int.tryParse(timeParts[1]) ?? 0;
+
+    if (isAfternoon && hour != 12) {
+      hour += 12;
+    } else if (!isAfternoon && hour == 12) {
+      hour = 0;
+    }
+
+    DateTime expectedTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+
+    // 예상 완료 시간이 현재 시간보다 이전이면 다음날로 설정
+    if (expectedTime.isBefore(now)) {
+      expectedTime = expectedTime.add(const Duration(days: 1));
+      print(
+        'Expected end time adjusted to next day: ${expectedTime.toString()}',
+      );
+    }
+
+    return expectedTime;
+  }
+
+  // 실시간 수면 타이머 시작
+  void _startSleepTimer() {
+    _sleepTimer?.cancel();
+
+    // 예상 완료 시간을 DateTime으로 변환
+    sleepExpectedEndDateTime = _parseExpectedEndTime(sleepExpectedEndTime);
+    // 👉 TODO: DB에서 받아온 실제 완료 시간으로 교체
+
+    print('Sleep timer started:');
+    print('  - Expected end time string: $sleepExpectedEndTime');
+    print(
+      '  - Parsed expected end time: ${sleepExpectedEndDateTime.toString()}',
+    );
+    print('  - Current time: ${DateTime.now().toString()}');
+
+    _sleepTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _updateRemainingTime();
+    });
+  }
+
+  // 남은 시간 및 진행률 계산
+  void _updateRemainingTime() {
+    if (sleepStartDateTime == null || sleepExpectedEndDateTime == null) return;
+
+    final now = DateTime.now();
+    final totalDuration = sleepExpectedEndDateTime!.difference(
+      sleepStartDateTime!,
+    );
+    final remaining = sleepExpectedEndDateTime!.difference(now);
+
+    // 디버깅을 위한 상세 로그
+    print('Timer update:');
+    print('  - Now: ${now.toString()}');
+    print('  - Sleep start: ${sleepStartDateTime.toString()}');
+    print('  - Expected end: ${sleepExpectedEndDateTime.toString()}');
+    print('  - Total duration: ${totalDuration.inMinutes} minutes');
+    print('  - Remaining: ${remaining.inMinutes} minutes');
+
+    if (remaining.isNegative) {
+      // 예상 시간이 지났으면 완료 처리
+      print('  - AUTOMATIC TERMINATION: Expected time has passed');
+      setState(() {
+        remainingTimeText = '00:00:00 남음';
+        sleepProgress = 1.0;
+      });
+      _updateSleepStatus(SleepStatus.finished);
+      return;
+    }
+
+    // 남은 시간을 HH:MM:SS 형식으로 표시
+    final hours = remaining.inHours;
+    final minutes = remaining.inMinutes % 60;
+    final seconds = remaining.inSeconds % 60;
+
+    // 진행률 계산 (0.0 ~ 1.0): 전체 시간 중 남은 시간의 비율
+    final progress = remaining.inMilliseconds / totalDuration.inMilliseconds;
+
+    setState(() {
+      remainingTimeText =
+          '${hours.toString().padLeft(2, '0')}:${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')} 남음';
+      sleepProgress = progress.clamp(0.0, 1.0);
+    });
+  }
+
+  // 수면 종료 시간 저장
+  Future<void> _saveSleepEndTime() async {
+    final now = DateTime.now();
+    final formattedKoreanTime = _formatTimeToKorean(now);
+
+    setState(() {
+      sleepEndTime = formattedKoreanTime;
+    });
+
+    // 👉 TODO: DB에 수면 종료 시간 저장
+    // await DatabaseService.saveSleepEndTime(now.toIso8601String());
+
+    // SharedPreferences에도 임시 저장 (mode_off에서 사용하기 위해)
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('sleep_end_time', now.toIso8601String());
+    await prefs.setString('sleep_end_time_korean', formattedKoreanTime);
+
+    // 수면 세션 비활성화
+    await prefs.setBool('sleep_session_active', false);
+
+    print('Sleep end time saved:');
+    print('  - DateTime: ${now.toIso8601String()}');
+    print('  - Korean time: $formattedKoreanTime');
+    print(
+      '  - Hour: ${now.hour}, Minute: ${now.minute}, Second: ${now.second}',
+    );
+    print('Sleep session deactivated');
   }
 
   @override
@@ -297,7 +505,7 @@ class _ModeOnPageState extends State<ModeOnPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            // 👉🏻 DATA TODO: 모드 이름 + Index 받아오기
+            // 👉🏻👉🏻👉🏻 DATA TODO: sleeping_mode + sequence 값 받아오기
             isNap ? '낮잠 2' : '밤잠 1',
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
           ),
@@ -307,7 +515,21 @@ class _ModeOnPageState extends State<ModeOnPage> {
               width: 48,
               height: 48,
             ),
-            onPressed: () {
+            onPressed: () async {
+              // 디바이스 끄기 상태 저장
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setBool('device_on', false);
+
+              // 모든 수면 관련 데이터 초기화
+              await prefs.remove('current_mode_type');
+              await prefs.remove('day_start_time');
+              await prefs.remove('night_start_time');
+              await prefs.remove('sleep_end_time');
+              await prefs.remove('sleep_end_time_korean');
+              await prefs.setBool('sleep_session_active', false);
+
+              print('Device turned off and all sleep data cleared');
+
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const DeviceOff()),
@@ -340,9 +562,9 @@ class _ModeOnPageState extends State<ModeOnPage> {
             ),
           ),
           const SizedBox(height: 6),
-          const Text(
-            '00:28 남음', // 👉 TODO: 실제 수면 시간 계산 필요
-            style: TextStyle(
+          Text(
+            remainingTimeText, // 실시간 계산된 남은 시간
+            style: const TextStyle(
               fontSize: 32,
               height: 24 / 32,
               fontWeight: FontWeight.w500,
@@ -350,18 +572,18 @@ class _ModeOnPageState extends State<ModeOnPage> {
             ),
           ),
           const SizedBox(height: 16),
-          const Text(
-            '수면 시작 오전 9:38', // 👉 TODO: 실제 시간으로 치환
-            style: TextStyle(
+          Text(
+            '수면 시작 ${sleepStartTime ?? '오전 9:38'}', // 저장된 시간 사용
+            style: const TextStyle(
               fontSize: 14,
               height: 24 / 14,
               color: Color(0xFF606C80),
               fontWeight: FontWeight.w400,
             ),
           ),
-          const Text(
-            '예상 완료 시각 오전 10:40', // 👉 TODO: 실제 시간으로 치환
-            style: TextStyle(
+          Text(
+            '예상 완료 시각 $sleepExpectedEndTime', // DB에서 가져올 수면 완료 예상 시간
+            style: const TextStyle(
               fontSize: 14,
               height: 24 / 14,
               color: Color(0xFF606C80),
@@ -372,12 +594,12 @@ class _ModeOnPageState extends State<ModeOnPage> {
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
-              value: 0.6, // 👉 TODO: 실제 수면 진행 비율 (0.0 ~ 1.0) 계산
+              value: sleepProgress,
               minHeight: 8,
               backgroundColor: const Color(0xFFBEC1C1),
               valueColor: const AlwaysStoppedAnimation<Color>(
                 Color(0xFF2C92B4),
-              ), // 수면 중일 때는 초록색
+              ),
             ),
           ),
         ],
@@ -403,7 +625,6 @@ class _ModeOnPageState extends State<ModeOnPage> {
               const SizedBox(height: 4),
               if (isAuto)
                 const Text(
-                  // 👉🏻 DATA TODO: 아기 개월수 받아오기
                   '34 개월 우리 아기가 가장 잘 자는 환경이에요',
                   style: TextStyle(fontSize: 12, color: Color(0xFF606C80)),
                 ),
@@ -429,7 +650,10 @@ class _ModeOnPageState extends State<ModeOnPage> {
       child: SizedBox(
         height: 44,
         child: ElevatedButton.icon(
-          onPressed: () {
+          onPressed: () async {
+            // 수면 종료 시간 저장 완료까지 대기
+            await _saveSleepEndTime();
+
             // 수동으로 수면 종료
             _updateSleepStatus(SleepStatus.finished);
           },
