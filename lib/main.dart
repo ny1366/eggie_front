@@ -1,5 +1,4 @@
 import 'package:eggie2/pages/device_current_log.dart';
-import 'package:eggie2/pages/device_log_detail.dart';
 import 'package:eggie2/pages/device_off.dart';
 import 'package:eggie2/pages/home_page.dart';
 import 'package:eggie2/pages/device_page.dart';
@@ -7,10 +6,13 @@ import 'package:eggie2/pages/mode_off.dart';
 import 'package:eggie2/pages/sleep_log.dart';
 import 'package:eggie2/pages/useful_page.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('ko_KR', null);
   runApp(const MainApp());
 }
 
@@ -34,7 +36,6 @@ class MainApp extends StatelessWidget {
         '/today_sleep_log': (context) => const TodaySleepLogPage(),
         '/useful_function': (context) => const UsefulFunctionPage(),
         '/mode_off': (context) => const ModeOffPage(),
-        '/device_log_detail': (context) => const DeviceLogDetailPage(),
         '/device_off': (context) => const DeviceOff(),
       },
     );

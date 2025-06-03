@@ -1,39 +1,108 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+import 'package:eggie2/services/api.dart';
 
-class DeviceLogDetailPage extends StatelessWidget {
-  const DeviceLogDetailPage({super.key});
+class DeviceLogDetailPage extends StatefulWidget {
+  final DateTime recordedAt;
+  const DeviceLogDetailPage({super.key, required this.recordedAt});
+
+  @override
+  State<DeviceLogDetailPage> createState() => _DeviceLogDetailPageState();
+}
+
+class _DeviceLogDetailPageState extends State<DeviceLogDetailPage> {
+  bool isSameMinute(DateTime a, DateTime b) {
+    return a.year == b.year &&
+        a.month == b.month &&
+        a.day == b.day &&
+        a.hour == b.hour &&
+        a.minute == b.minute;
+  }
+  Map<String, dynamic>? detail;
+
+  @override
+  void initState() {
+    super.initState();
+    fetchDetail();
+  }
+
+  Future<void> fetchDetail() async {
+    final url = Uri.parse('${getBaseUrl()}/detailed-history/1');
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = jsonDecode(response.body);
+
+      print('📦 Flutter recordedAt: ${widget.recordedAt}');
+      for (var item in data) {
+        final parsed = DateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", 'en_US')
+            .parse(item['recorded_at'], true)
+            .toLocal();
+        print('🕒 Flask parsed recorded_at: $parsed');
+      }
+
+      DateTime? closestTime;
+      Map<String, dynamic>? closestItem;
+      int minDifference = 999999;
+
+      for (var item in data) {
+        final parsed = DateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", 'en_US')
+            .parse(item['recorded_at'], true)
+            .toLocal();
+
+        final diff = (parsed.difference(widget.recordedAt)).abs().inSeconds;
+        if (diff < minDifference) {
+          minDifference = diff;
+          closestTime = parsed;
+          closestItem = item;
+        }
+      }
+
+      if (closestItem != null) {
+        setState(() {
+          detail = closestItem;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    String formattedTitle = DateFormat("yyyy.M.d. a h:mm", 'ko_KR').format(widget.recordedAt);
+
     return Scaffold(
       backgroundColor: const Color(0xFFEDF2F4),
-      appBar: _buildTopBar(context, title: '2025.5.23. 오전 11:12'),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const SizedBox(height: 24),
-            _buildWidgetTitle(text: '에너지 사용량'),
-            const SizedBox(height: 8),
-            _buildEnergyUsageWidget(),
-            const SizedBox(height: 24),
-            _buildWidgetTitle(text: '환경 정보'),
-            const SizedBox(height: 8),
-            _buildEnvInfoWidget(),
-            const SizedBox(height: 24),
-            _buildWidgetTitle(text: '코스 옵션'),
-            const SizedBox(height: 2),
-            _buildWidgetTitle(text: '자동 코스의 경우, 평균 설정값으로 노출됩니다.'),
-            const SizedBox(height: 8),
-            _buildCourseOptionWidget(),
-            const SizedBox(height: 120),
-          ],
-        ),
-      ),
+      appBar: _buildTopBar(context, title: formattedTitle),
+      body: detail == null
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 24),
+                  _buildWidgetTitle(text: '에너지 사용량'),
+                  const SizedBox(height: 8),
+                  const _buildEnergyUsageWidget(),
+                  const SizedBox(height: 24),
+                  _buildWidgetTitle(text: '환경 정보'),
+                  const SizedBox(height: 8),
+                  _buildEnvInfoWidget(detail!),
+                  const SizedBox(height: 24),
+                  _buildWidgetTitle(text: '코스 옵션'),
+                  const SizedBox(height: 2),
+                  _buildWidgetTitle(text: '자동 코스의 경우, 평균 설정값으로 노출됩니다.'),
+                  const SizedBox(height: 8),
+                  _buildCourseOptionWidget(detail!),
+                  const SizedBox(height: 120),
+                ],
+              ),
+            ),
     );
   }
 
-  Container _buildEnvInfoWidget() {
+  Container _buildEnvInfoWidget(Map<String, dynamic> data) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -45,19 +114,19 @@ class DeviceLogDetailPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildEnvInfoItem(text: '평균 온도', value: '20°C'),
+          _buildEnvInfoItem(text: '평균 온도', value: '${data['temperature']}°C'),
           _buildDevider(),
-          _buildEnvInfoItem(text: '평균 습도', value: '30%'),
+          _buildEnvInfoItem(text: '평균 습도', value: '${data['humidity']}%'),
           _buildDevider(),
-          _buildEnvInfoItem(text: '밝기', value: '10%'),
+          _buildEnvInfoItem(text: '밝기', value: '${data['brightness']}%'),
           _buildDevider(),
-          _buildEnvInfoItem(text: '백색 소음', value: '29dB'),
+          _buildEnvInfoItem(text: '백색 소음', value: '${data['white_noise_level']}dB'),
         ],
       ),
     );
   }
 
-  Container _buildCourseOptionWidget() {
+  Container _buildCourseOptionWidget(Map<String, dynamic> data) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -75,9 +144,9 @@ class DeviceLogDetailPage extends StatelessWidget {
           _buildDevider(),
           _buildEnvInfoItem(text: '제습 세기', value: 'OFF'),
           _buildDevider(),
-          _buildEnvInfoItem(text: '밝기', value: '10%'),
+          _buildEnvInfoItem(text: '밝기', value: '${data['brightness']}%'),
           _buildDevider(),
-          _buildEnvInfoItem(text: '백색 소음', value: '29dB'),
+          _buildEnvInfoItem(text: '백색 소음', value: '${data['white_noise_level']}dB'),
         ],
       ),
     );

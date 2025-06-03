@@ -1,4 +1,8 @@
-import 'package:eggie2/pages/device_log_detail.dart';
+import 'dart:convert';
+import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'package:eggie2/services/api.dart';
+import 'package:eggie2/pages/device_log_detail.dart' show DeviceLogDetailPage;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 
@@ -32,54 +36,59 @@ class CurrentLogPage extends StatelessWidget {
   }
 
   Widget _buildDeviceLogWidget(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFEFF1F4)),
-      ),
-      child: Column(
-        children: [
-          _buildDeviceLogItem(
-            context,
-            modeIndex: '낮잠1',
-            date: '2025.05.23 오전 11:12',
-          ),
-          _buildDevider(),
-          _buildDeviceLogItem(
-            context,
-            modeIndex: '밤잠2',
-            date: '2025.05.23 오후 11:12',
-          ),
-          _buildDevider(),
-          _buildDeviceLogItem(
-            context,
-            modeIndex: '밤잠1',
-            date: '2025.05.23 오후 11:12',
-          ),
-          _buildDevider(),
-          _buildDeviceLogItem(
-            context,
-            modeIndex: '낮잠3',
-            date: '2025.05.23 오전 11:12',
-          ),
-          _buildDevider(),
-          _buildDeviceLogItem(
-            context,
-            modeIndex: '낮잠2',
-            date: '2025.05.23 오전 11:12',
-          ),
-          _buildDevider(),
-          _buildDeviceLogItem(
-            context,
-            modeIndex: '낮잠1',
-            date: '2025.05.23 오전 11:12',
-          ),
-        ],
-      ),
+    return FutureBuilder<List<Map<String, String>>>(
+      future: fetchSleepLogs(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return Center(child: Text("에러: ${snapshot.error}"));
+        } else {
+          final logs = snapshot.data!;
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFEFF1F4)),
+            ),
+            child: Column(
+              children: List.generate(logs.length * 2 - 1, (index) {
+                if (index.isOdd) return _buildDevider();
+                final log = logs[index ~/ 2];
+                return _buildDeviceLogItem(
+                  context,
+                  modeIndex: log['modeIndex']!,
+                  date: log['date']!,
+                );
+              }),
+            ),
+          );
+        }
+      },
     );
+  }
+
+  Future<List<Map<String, String>>> fetchSleepLogs() async {
+    final url = Uri.parse('${getBaseUrl()}/sleep-mode-format/1');
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      List<dynamic> data = jsonDecode(response.body);
+      return data.map<Map<String, String>>((item) {
+        final rawDate = DateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", 'en_US').parse(item["start_time"]);
+        final formattedDate = "${rawDate.year}.${rawDate.month.toString().padLeft(2, '0')}.${rawDate.day.toString().padLeft(2, '0')} "
+          "${rawDate.hour < 12 ? '오전' : '오후'} ${rawDate.hour % 12 == 0 ? 12 : rawDate.hour % 12}:${rawDate.minute.toString().padLeft(2, '0')}";
+
+        return {
+          "date": formattedDate,
+          "modeIndex": item["sleep_mode"]
+        };
+      }).toList();
+    } else {
+      throw Exception("데이터 로딩 실패");
+    }
   }
 
   Widget _buildDevider() {
@@ -93,9 +102,12 @@ class CurrentLogPage extends StatelessWidget {
   }) {
     return GestureDetector(
       onTap: () {
+        final rawDate = DateFormat("yyyy.MM.dd a h:mm", 'ko_KR').parse(date);
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const DeviceLogDetailPage()),
+          MaterialPageRoute(
+            builder: (context) => DeviceLogDetailPage(recordedAt: rawDate),
+          ),
         );
       },
       child: Padding(
