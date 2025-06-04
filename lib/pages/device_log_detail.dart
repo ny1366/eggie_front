@@ -43,27 +43,17 @@ class _DeviceLogDetailPageState extends State<DeviceLogDetailPage> {
         print('🕒 Flask parsed recorded_at: $parsed');
       }
 
-      DateTime? closestTime;
-      Map<String, dynamic>? closestItem;
-      int minDifference = 999999;
-
       for (var item in data) {
         final parsed = DateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", 'en_US')
             .parse(item['recorded_at'], true)
             .toLocal();
 
-        final diff = (parsed.difference(widget.recordedAt)).abs().inSeconds;
-        if (diff < minDifference) {
-          minDifference = diff;
-          closestTime = parsed;
-          closestItem = item;
+        if (isSameMinute(parsed, widget.recordedAt)) {
+          setState(() {
+            detail = item;
+          });
+          break;
         }
-      }
-
-      if (closestItem != null) {
-        setState(() {
-          detail = closestItem;
-        });
       }
     }
   }

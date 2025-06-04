@@ -8,6 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '../services/api.dart';
 
 enum SleepStatus {
   sleeping, // 수면 중
@@ -73,6 +76,7 @@ class _ModeOnPageState extends State<ModeOnPage> {
     _setModeBasedOnTime(); // 페이지 진입 시 시간 기준으로 탭 설정
     _loadSavedStates();
     _startSleepStatusMonitoring(); // 수면 상태 모니터링 시작
+    _loadExpectedEndTime();
   }
 
   @override
@@ -227,7 +231,7 @@ class _ModeOnPageState extends State<ModeOnPage> {
   }
 
   // 예상 완료 시간 문자열을 DateTime으로 변환
-  DateTime _parseExpectedEndTime(String timeString) {
+  DateTime _parseExpectedEndTimeLegacy(String timeString) {
     final now = DateTime.now();
 
     // "오후 8:00" 형식 파싱
@@ -268,12 +272,40 @@ class _ModeOnPageState extends State<ModeOnPage> {
     return expectedTime;
   }
 
+  // API에서 예상 완료 시간 받아오기
+  Future<void> _loadExpectedEndTime() async {
+    final url = Uri.parse('${getBaseUrl()}/sleep-session-summary/1');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        if (data.isNotEmpty) {
+          final latest = data.first;
+          final endAt = DateTime.parse(latest["expected_end_at"]);
+          setState(() {
+            sleepExpectedEndDateTime = endAt;
+            sleepExpectedEndTime = _parseExpectedEndTime(endAt);
+          });
+        }
+      } else {
+        print('❗ API 응답 오류: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('❗ API 호출 실패: $e');
+    }
+  }
+
+  // DateTime을 HH:mm 형식으로 변환
+  String _parseExpectedEndTime(DateTime endTime) {
+    return '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}';
+  }
+
   // 실시간 수면 타이머 시작
   void _startSleepTimer() {
     _sleepTimer?.cancel();
 
     // 예상 완료 시간을 DateTime으로 변환
-    sleepExpectedEndDateTime = _parseExpectedEndTime(sleepExpectedEndTime);
+    sleepExpectedEndDateTime = _parseExpectedEndTimeLegacy(sleepExpectedEndTime);
     // 👉 TODO: DB에서 받아온 실제 완료 시간으로 교체
 
     print('Sleep timer started:');
@@ -625,7 +657,7 @@ class _ModeOnPageState extends State<ModeOnPage> {
               const SizedBox(height: 4),
               if (isAuto)
                 const Text(
-                  '34 개월 우리 아기가 가장 잘 자는 환경이에요',
+                  '16주차 우리 아기가 가장 잘 자는 환경이에요',
                   style: TextStyle(fontSize: 12, color: Color(0xFF606C80)),
                 ),
             ],
@@ -674,91 +706,138 @@ class _ModeOnPageState extends State<ModeOnPage> {
   }
 
   Widget _buildAutoModeContent() {
-    // 👉🏻 TODO: DB에서 낮잠/밤잠 모드별 자동 설정값 불러오기
-    final envValues = isNap
-        ? {
-            'temp': '20°C',
-            'humidity': '30%',
-            'brightness': '10%',
-            'sound': '29dB',
-          }
-        : {
-            'temp': '18°C',
-            'humidity': '40%',
-            'brightness': '5%',
-            'sound': '35dB',
-          };
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.only(left: 24, right: 24, top: 22, bottom: 6),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+    // 자동 설정값을 서버에서 불러와서 사용
+    return FutureBuilder< Map<String, String> >(
+      future: _fetchAutoEnvValues(),
+      builder: (context, snapshot) {
+        final envValues = snapshot.data ??
+            {
+              'temp': '--',
+              'humidity': '--',
+              'brightness': '--',
+              'sound': '--',
+            };
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 16),
+          padding: const EdgeInsets.only(left: 24, right: 24, top: 22, bottom: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
             children: [
-              Container(
-                width: 40,
-                height: 24,
-                child: Text(
-                  '현재',
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 24 / 16,
-                    color: Color(0xFF606C80),
-                    fontWeight: FontWeight.w400,
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Container(
+                    width: 40,
+                    height: 24,
+                    child: Text(
+                      '현재',
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 24 / 16,
+                        color: Color(0xFF606C80),
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 24),
+                  Container(
+                    width: 40,
+                    height: 24,
+                    child: Text(
+                      '희망',
+                      style: TextStyle(
+                        fontSize: 16,
+                        height: 24 / 16,
+                        color: Color(0xFF606C80),
+                        fontWeight: FontWeight.w400,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 24),
-              Container(
-                width: 40,
-                height: 24,
-                child: Text(
-                  '희망',
-                  style: TextStyle(
-                    fontSize: 16,
-                    height: 24 / 16,
-                    color: Color(0xFF606C80),
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
+              _buildSleepingEnvItem(
+                icon: 'assets/images/temp.png',
+                label: '온도',
+                keyName: 'temp',
+                envValues: envValues,
+              ),
+              _buildDevider(),
+              _buildSleepingEnvItem(
+                icon: 'assets/images/humidity.png',
+                label: '습도',
+                keyName: 'humidity',
+                envValues: envValues,
+              ),
+              _buildDevider(),
+              _buildSleepingEnvItem(
+                icon: 'assets/images/brightness.png',
+                label: '밝기',
+                keyName: 'brightness',
+                envValues: envValues,
+              ),
+              _buildDevider(),
+              _buildSleepingEnvItem(
+                icon: 'assets/images/sound.png',
+                label: '백색 소음',
+                keyName: 'sound',
+                envValues: envValues,
               ),
             ],
           ),
-          _buildSleepingEnvItem(
-            icon: 'assets/images/temp.png',
-            label: '온도',
-            keyName: 'temp',
-            envValues: envValues,
-          ),
-          _buildDevider(),
-          _buildSleepingEnvItem(
-            icon: 'assets/images/humidity.png',
-            label: '습도',
-            keyName: 'humidity',
-            envValues: envValues,
-          ),
-          _buildDevider(),
-          _buildSleepingEnvItem(
-            icon: 'assets/images/brightness.png',
-            label: '밝기',
-            keyName: 'brightness',
-            envValues: envValues,
-          ),
-          _buildDevider(),
-          _buildSleepingEnvItem(
-            icon: 'assets/images/sound.png',
-            label: '백색 소음',
-            keyName: 'sound',
-            envValues: envValues,
-          ),
-        ],
-      ),
+        );
+      },
     );
+  }
+
+  // 자동 환경값을 서버에서 불러오는 함수 (최신 낮잠/밤잠 환경값, 낮잠 우선)
+  Future<Map<String, String>> _fetchAutoEnvValues() async {
+    try {
+      final url = Uri.parse('${getBaseUrl()}/detailed-history/1');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+
+        // 최신 밤잠과 낮잠 값을 추출
+        Map<String, dynamic>? latestDay;
+        Map<String, dynamic>? latestNight;
+
+        for (var entry in data.reversed) {
+          if (latestDay == null && entry['sleep_mode'] == 'day') {
+            latestDay = entry;
+          }
+          if (latestNight == null && entry['sleep_mode'] == 'night') {
+            latestNight = entry;
+          }
+          if (latestDay != null && latestNight != null) break;
+        }
+
+        // 선택: 낮잠 값 우선 표시
+        final latest = latestDay ?? latestNight;
+        if (latest == null) throw Exception("No env data found");
+
+        // Round all values and append proper units
+        return {
+          'temp': '${latest['temperature'].round()}°C',
+          'humidity': '${latest['humidity'].round()}%',
+          'brightness': '${latest['brightness'].round()}%',
+          'sound': '${latest['white_noise_level'].round()}dB',
+        };
+      } else {
+        throw Exception('Failed to load env data');
+      }
+    } catch (e) {
+      print("Error fetching env values: $e");
+      return {
+        'temp': '--',
+        'humidity': '--',
+        'brightness': '--',
+        'sound': '--',
+      };
+    }
   }
 
   Widget _buildEnvInfoItem({

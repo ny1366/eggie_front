@@ -5,7 +5,14 @@ import 'package:eggie2/pages/sleep_log.dart';
 import 'package:eggie2/pages/useful_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'dart:io';
+
+import '../services/api.dart';
+
 
 class ModeOffPage extends StatefulWidget {
   final bool showStopModal;
@@ -22,10 +29,17 @@ class _ModeOffPageState extends State<ModeOffPage> {
   bool isNightAuto = true; // 밤잠 모드의 자동 상태
   bool _isLogExpanded = false; // 로그 펼침 상태 관리
 
+  bool _hasFetchedAutoEnv = false;
+
+  Map<String, String> autoEnvValues = {};
+
   // 수면 시간 변수들
   String? sleepStartTime; // 수면 시작 시간
   String? sleepEndTime; // 수면 종료 시간
   String sleepDuration = '1시간 2분'; // 수면 시간 (계산된 값)
+
+  String? _nextDaySleepModeLabel;
+  String? _nextNightSleepModeLabel;
 
   final Map<String, List<String>> optionValues = {
     'temp': ['18°C', '19°C', '20°C', '21°C'],
@@ -47,11 +61,15 @@ class _ModeOffPageState extends State<ModeOffPage> {
     'sound': 1,
   };
 
+  String? _nextModeLabel;
+
   @override
   void initState() {
     super.initState();
     _setModeBasedOnTime(); // 페이지 진입 시 시간 기준으로 탭 설정
-    _loadSavedStates();
+    _loadSavedStates().then((_) => _fetchAutoEnvValues());
+    _fetchNextSleepModeLabel();
+    _fetchTodayLogs(); // Pre-fetch logs once
 
     // 페이지 로드 후 바텀 시트 표시
     if (widget.showStopModal) {
@@ -65,6 +83,83 @@ class _ModeOffPageState extends State<ModeOffPage> {
           }
         });
       });
+    }
+  }
+
+  Future<void> _fetchNextSleepModeLabel() async {
+    try {
+      final url = Uri.parse('${getBaseUrl()}/sleep-mode-format/1/2024-09-16');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> logs = jsonDecode(response.body);
+        debugPrint('🔍 raw response: $logs');
+
+        int maxDayIndex = 0;
+        int maxNightIndex = 0;
+
+        for (var log in logs) {
+          final modeString = log['sleep_mode'] ?? '';
+          final mode = modeString.toString();
+
+          final dayMatch = RegExp(r'낮잠(\d+)').firstMatch(mode);
+          final nightMatch = RegExp(r'밤잠(\d+)').firstMatch(mode);
+
+          if (dayMatch != null) {
+            final index = int.tryParse(dayMatch.group(1) ?? '0') ?? 0;
+            if (index > maxDayIndex) maxDayIndex = index;
+          } else if (nightMatch != null) {
+            final index = int.tryParse(nightMatch.group(1) ?? '0') ?? 0;
+            if (index > maxNightIndex) maxNightIndex = index;
+          }
+        }
+
+        setState(() {
+          _nextDaySleepModeLabel = '낮잠${maxDayIndex + 1}';
+          _nextNightSleepModeLabel = '밤잠${maxNightIndex + 1}';
+        });
+      } else {
+        debugPrint('Failed to fetch today logs: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('Error fetching today logs: $e');
+    }
+  }
+
+  Future<void> _fetchAutoEnvValues() async {
+    if (_hasFetchedAutoEnv) return;
+    setState(() {
+      _hasFetchedAutoEnv = true;
+    });
+    final url = Uri.parse('${getBaseUrl()}/detailed-history/1');
+    try {
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final String currentMode = isNap ? 'day' : 'night';
+
+        final latest = data.reversed.firstWhere(
+          (entry) => entry['sleep_mode'] == currentMode,
+          orElse: () => null,
+        );
+
+        if (latest != null) {
+          setState(() {
+            autoEnvValues = {
+              'temp': '${latest['temperature'].round()}°C',
+              'humidity': '${latest['humidity'].round()}%',
+              'brightness': '${latest['brightness'].round()}%',
+              'sound': '${latest['white_noise_level'].round()}dB',
+            };
+          });
+        } else {
+          print('No recent entry found for mode: $currentMode');
+        }
+      } else {
+        print('Failed to fetch environment values: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error fetching auto environment values: $e');
     }
   }
 
@@ -182,11 +277,26 @@ class _ModeOffPageState extends State<ModeOffPage> {
     });
   }
 
+  // sleepReports: 오늘의 수면 기록을 담는 리스트 (API 등에서 데이터를 받아 populate 해야 함)
+  List<dynamic> sleepReports = [];
+
+  // 다음 모드 라벨 getter (오늘 날짜와 모드 기준)
+  String get nextModeLabel {
+    if (isNap) {
+      return _nextDaySleepModeLabel ?? '낮잠1';
+    } else {
+      return _nextNightSleepModeLabel ?? '밤잠1';
+    }
+  }
+
   // 탭 전환 - 자유롭게 이동 가능
   void _onTabChanged(bool isNapMode) {
     setState(() {
       isNap = isNapMode;
+      _hasFetchedAutoEnv = false; // allow refetch for new tab
     });
+    _fetchAutoEnvValues();
+    _fetchNextSleepModeLabel();
   }
 
   // 수면 시간 계산 메서드
@@ -404,19 +514,13 @@ class _ModeOffPageState extends State<ModeOffPage> {
   }
 
   Widget _buildAutoModeContent() {
-    // 👉🏻 TODO: DB에서 낮잠/밤잠 모드별 자동 설정값 불러오기
-    final envValues = isNap
-        ? {
+    final envValues = autoEnvValues.isNotEmpty
+        ? autoEnvValues
+        : {
             'temp': '20°C',
             'humidity': '30%',
             'brightness': '10%',
             'sound': '29dB',
-          }
-        : {
-            'temp': '18°C',
-            'humidity': '40%',
-            'brightness': '5%',
-            'sound': '35dB',
           };
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -725,7 +829,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
               if (isAuto)
                 const Text(
                   // 👉🏻 DATA TODO: 아기 개월수 받아오기
-                  '34 개월 우리 아기가 가장 잘 자는 환경이에요',
+                  '16주차 우리 아기가 가장 잘 자는 환경이에요',
                   style: TextStyle(fontSize: 12, color: Color(0xFF606C80)),
                 ),
             ],
@@ -808,8 +912,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            // 👉🏻 DATA TODO: 모드 이름 + Index 받아오기
-            isNap ? '낮잠 2' : '밤잠 1',
+            nextModeLabel,
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
           ),
           IconButton(
@@ -889,18 +992,78 @@ class _ModeOffPageState extends State<ModeOffPage> {
           ),
 
           // 로그 아이템들 - 펼침 상태일 때만 표시
-          if (_isLogExpanded) ...[
-            // 👉🏻 DATA TODO: 사용 로그 받아오기
-            _buildTodayLogItem(
-              title: '낮잠 1',
-              timeRange: '오전 9:30  -  오전 10:40',
+          if (_isLogExpanded)
+            FutureBuilder<List<Map<String, String>>>(
+              future: _fetchTodayLogs(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasError) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('사용 내역을 불러오는 중 오류가 발생했습니다.'),
+                  );
+                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.all(16),
+                    child: Text('오늘 사용 내역이 없습니다.'),
+                  );
+                } else {
+                  return Column(
+                    children: snapshot.data!
+                        .map((log) => _buildTodayLogItem(
+                              title: log['title']!,
+                              timeRange: log['timeRange']!,
+                            ))
+                        .toList(),
+                  );
+                }
+              },
             ),
-            //_buildTodayLogItem(title: '낮잠 2', timeRange: '오후 2:30  -  오후 3:40'),
-            //_buildTodayLogItem(title: '낮잠 3', timeRange: '오후 4:30  -  오후 5:40'),
-          ],
         ],
       ),
     );
+  }
+  Future<List<Map<String, String>>> _fetchTodayLogs() async {
+    final url = Uri.parse('${getBaseUrl()}/sleep-mode-format/1/2024-09-16');
+    try {
+      final response = await http.get(url);
+      // print('🔍 raw response: ${response.body}');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        final fixedDate = DateTime(2024, 9, 16);
+
+        return data.where((entry) {
+          final startTime = entry['recorded_at'] != null
+              ? HttpDate.parse(entry['recorded_at']).toLocal()
+              : null;
+          return startTime != null &&
+              startTime.year == fixedDate.year &&
+              startTime.month == fixedDate.month &&
+              startTime.day == fixedDate.day;
+        }).map<Map<String, String>>((entry) {
+          final title = entry['sleep_mode'] ?? '알 수 없음';
+          final startTime = HttpDate.parse(entry['recorded_at']).toLocal();
+          final endTime = entry['end_time'] != null
+              ? HttpDate.parse(entry['end_time']).toLocal()
+              : null;
+
+          final formatter = DateFormat('a h:mm', 'ko_KR');
+
+          return {
+            'title': title,
+            'timeRange':
+                '${formatter.format(startTime)} - ${endTime != null ? formatter.format(endTime) : 'null'}',
+          };
+        }).toList();
+      } else {
+        print('Failed to fetch today logs: ${response.statusCode}');
+        return [];
+      }
+    } catch (e) {
+      print('Error fetching today logs: $e');
+      return [];
+    }
   }
 
   Widget _buildTodayLogItem({

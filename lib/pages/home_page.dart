@@ -293,11 +293,11 @@ class _buildSleepLogWidget extends StatelessWidget {
                   ),
                   SizedBox(width: 6),
                   Text(
-                    '34',
+                    '16',
                     style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
                   ),
                   Text(
-                    ' 개월',
+                    ' 주차',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
                   ),
                 ],
