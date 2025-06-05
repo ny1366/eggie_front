@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 import '../services/api.dart';
 
 enum SleepStatus {
@@ -45,7 +46,7 @@ class _ModeOnPageState extends State<ModeOnPage> {
   String? sleepStartTime;
 
   // 예상 수면 완료 시간 (= DB에서 가져올 값)
-  String sleepExpectedEndTime = '오후 8:00'; // 👉 TODO: DB에서 수면 완료 예상 시간 불러오기
+  String sleepExpectedEndTime = ''; // 서버에서 가져온 값으로 초기화
 
   // 수면 종료 시간
   String? sleepEndTime;
@@ -76,7 +77,8 @@ class _ModeOnPageState extends State<ModeOnPage> {
     _setModeBasedOnTime(); // 페이지 진입 시 시간 기준으로 탭 설정
     _loadSavedStates();
     _startSleepStatusMonitoring(); // 수면 상태 모니터링 시작
-    _loadExpectedEndTime();
+    _loadExpectedEndTime(); // 1차 로딩
+    fetchExpectedSleepEndTime(); // 2차 로딩 (여기서 포맷팅해서 넣는 중)
   }
 
   @override
@@ -292,6 +294,35 @@ class _ModeOnPageState extends State<ModeOnPage> {
       }
     } catch (e) {
       print('❗ API 호출 실패: $e');
+    }
+  }
+
+  Future<void> fetchExpectedSleepEndTime() async {
+    try {
+      final url = Uri.parse('${getBaseUrl()}/sleep-session-summary/1');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        print('✅ API result: $data');
+
+
+        if (data.isNotEmpty) {
+          final latest = data.first;
+          final endTime = DateTime.parse(latest['expected_end_at']);
+          final formatted = DateFormat('a hh:mm', 'ko_KR').format(endTime).replaceAll('AM', '오전').replaceAll('PM', '오후');
+          
+          print('✅ Formatted expected end time: $formatted');
+
+          setState(() {
+            sleepExpectedEndTime = formatted;
+          });
+        }
+      } else {
+        print('🔴 Failed to fetch expected sleep end time: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('🔴 Error fetching expected sleep end time: $e');
     }
   }
 

@@ -88,13 +88,15 @@ class _ModeOffPageState extends State<ModeOffPage> {
 
   Future<void> _fetchNextSleepModeLabel() async {
     try {
-      final url = Uri.parse('${getBaseUrl()}/sleep-mode-format/1/2024-09-16');
+      final today = DateTime.now();
+      final formatter = DateFormat('yyyy-MM-dd');
+      final dateStr = formatter.format(today);
+      final url = Uri.parse(
+          '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$dateStr&end_dt=${dateStr}');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
         final List<dynamic> logs = jsonDecode(response.body);
-        debugPrint('🔍 raw response: $logs');
-
         int maxDayIndex = 0;
         int maxNightIndex = 0;
 
@@ -1025,45 +1027,16 @@ class _ModeOffPageState extends State<ModeOffPage> {
     );
   }
   Future<List<Map<String, String>>> _fetchTodayLogs() async {
-    final url = Uri.parse('${getBaseUrl()}/sleep-mode-format/1/2024-09-16');
-    try {
-      final response = await http.get(url);
-      // print('🔍 raw response: ${response.body}');
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        final fixedDate = DateTime(2024, 9, 16);
-
-        return data.where((entry) {
-          final startTime = entry['recorded_at'] != null
-              ? HttpDate.parse(entry['recorded_at']).toLocal()
-              : null;
-          return startTime != null &&
-              startTime.year == fixedDate.year &&
-              startTime.month == fixedDate.month &&
-              startTime.day == fixedDate.day;
-        }).map<Map<String, String>>((entry) {
-          final title = entry['sleep_mode'] ?? '알 수 없음';
-          final startTime = HttpDate.parse(entry['recorded_at']).toLocal();
-          final endTime = entry['end_time'] != null
-              ? HttpDate.parse(entry['end_time']).toLocal()
-              : null;
-
-          final formatter = DateFormat('a h:mm', 'ko_KR');
-
-          return {
-            'title': title,
-            'timeRange':
-                '${formatter.format(startTime)} - ${endTime != null ? formatter.format(endTime) : 'null'}',
-          };
-        }).toList();
-      } else {
-        print('Failed to fetch today logs: ${response.statusCode}');
-        return [];
-      }
-    } catch (e) {
-      print('Error fetching today logs: $e');
-      return [];
-    }
+    return [
+      {
+        'title': '낮잠 1',
+        'timeRange': '오전 9:00 - 오전 10:30',
+      },
+      {
+        'title': '밤잠 1',
+        'timeRange': '오후 8:00 - 오후 9:20',
+      },
+    ];
   }
 
   Widget _buildTodayLogItem({
