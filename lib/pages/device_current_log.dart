@@ -1,10 +1,11 @@
 import 'dart:convert';
-import 'package:intl/intl.dart';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:eggie2/services/api.dart';
 import 'package:eggie2/pages/device_log_detail.dart' show DeviceLogDetailPage;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:eggie2/utils/time_formatter.dart';
 
 class CurrentLogPage extends StatelessWidget {
   const CurrentLogPage({super.key});
@@ -61,6 +62,7 @@ class CurrentLogPage extends StatelessWidget {
                   context,
                   modeIndex: log['modeIndex']!,
                   date: log['date']!,
+                  rawDate: log['rawDate']!,
                 );
               }),
             ),
@@ -78,12 +80,11 @@ class CurrentLogPage extends StatelessWidget {
       List<dynamic> data = jsonDecode(response.body);
       // Parsing 'recorded_at' field instead of 'start_time' from API response
       return data.map<Map<String, String>>((item) {
-        final rawDate = DateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", 'en_US').parse(item["recorded_at"]);
-        final formattedDate = "${rawDate.year}.${rawDate.month.toString().padLeft(2, '0')}.${rawDate.day.toString().padLeft(2, '0')} "
-          "${rawDate.hour < 12 ? '오전' : '오후'} ${rawDate.hour % 12 == 0 ? 12 : rawDate.hour % 12}:${rawDate.minute.toString().padLeft(2, '0')}";
+        final formattedDate = formatKoreanDateTime(item["recorded_at"]);
 
         return {
           "date": formattedDate,
+          "rawDate": item["recorded_at"],
           "modeIndex": item["sleep_mode"]
         };
       }).toList();
@@ -100,16 +101,21 @@ class CurrentLogPage extends StatelessWidget {
     BuildContext context, {
     required String modeIndex,
     required String date,
+    required String rawDate,
   }) {
     return GestureDetector(
       onTap: () {
-        final rawDate = DateFormat("yyyy.MM.dd a h:mm", 'ko_KR').parse(date);
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => DeviceLogDetailPage(recordedAt: rawDate),
-          ),
-        );
+        try {
+          final parsedDate = HttpDate.parse(rawDate).toLocal();
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DeviceLogDetailPage(recordedAt: parsedDate),
+            ),
+          );
+        } catch (e) {
+          debugPrint('❗ 날짜 파싱 실패: $rawDate');
+        }
       },
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),

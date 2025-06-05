@@ -1,3 +1,4 @@
+import 'dart:io'; // Ensure this import is present at the top
 import 'package:eggie2/pages/device_current_log.dart';
 import 'package:eggie2/pages/device_page.dart';
 import 'package:eggie2/pages/mode_off.dart';
@@ -10,22 +11,35 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import '../services/api.dart';
-import 'dart:io'; // Ensure this import is present at the top
+import 'package:eggie2/utils/time_formatter.dart';
+
 
 
 Future<List<Map<String, dynamic>>> fetchLatestSleepLogs() async {
-  // final today = DateTime.now();
-  final today = DateTime(2024, 9, 16); // ✅ 하드코딩된 날짜 (임시)
-  final formatter = DateFormat('yyyy-MM-dd');
-  final startDt = formatter.format(today);
-  final endDt = formatter.format(today.add(const Duration(days: 1)));
-
-  final response = await http.get(Uri.parse('${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt'));
-  print('🔍 sleep-mode-format response: ${response.body}');
+  final response = await http.get(Uri.parse('${getBaseUrl()}/sleep-mode-format/1'));
   if (response.statusCode == 200) {
     return List<Map<String, dynamic>>.from(jsonDecode(response.body));
   } else {
     throw Exception('Failed to load sleep logs');
+  }
+}
+
+Future<List<Map<String, dynamic>>> fetchTodaySleepLogs() async {
+  // ✅ 현재는 2024-09-16 날짜로 고정하여 값 확인 중. 실제 사용 시 아래 줄 주석 처리 필요
+  // final today = DateTime.now();
+  final today = DateTime(2024, 9, 16); // ✅ 테스트용으로 2024-09-16 날짜 고정 (나중엔 주석처리 필요)
+  final formatter = DateFormat('yyyy-MM-dd');
+  final startDt = formatter.format(today);
+  final endDt = formatter.format(today.add(const Duration(days: 1)));
+
+  final response = await http.get(Uri.parse(
+    '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt',
+  ));
+
+  if (response.statusCode == 200) {
+    return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+  } else {
+    throw Exception('오늘 수면 로그 로딩 실패');
   }
 }
 
@@ -266,7 +280,7 @@ class _DeviceOffState extends State<DeviceOff> {
 
           if (_isTodayLogExpanded)
             FutureBuilder<List<Map<String, dynamic>>>(
-              future: fetchLatestSleepLogs(),
+              future: fetchTodaySleepLogs(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Padding(
@@ -280,34 +294,24 @@ class _DeviceOffState extends State<DeviceOff> {
                   );
                 } else {
                   final data = snapshot.data ?? [];
-
-                  String formatKoreanTime(String? raw) {
-                    if (raw == null) return '시간 없음';
-                    try {
-                      final dt = HttpDate.parse(raw).toLocal();
-                      final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-                      final period = dt.hour < 12 ? '오전' : '오후';
-                      final minute = dt.minute.toString().padLeft(2, '0');
-                      return '$period $hour:$minute';
-                    } catch (e) {
-                      return '시간 오류';
-                    }
-                  }
-
                   final grouped = data.map((log) {
                     final title = log['sleep_mode'] ?? '기타';
-
                     final rawStart = log['recorded_at'];
                     final rawEnd = log['end_time'];
-
-                    final start = rawStart != null ? formatKoreanTime(rawStart) : '시간 없음';
-                    final end = rawEnd != null ? formatKoreanTime(rawEnd) : '시간 없음';
-
+                    final start = formatKoreanTime(rawStart);
+                    final end = formatKoreanTime(rawEnd);
                     return _buildTodayLogItem(
                       title: title,
                       timeRange: '$start  -  $end',
                     );
                   }).toList();
+
+                  if (grouped.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text('오늘 기록 없음'),
+                    );
+                  }
 
                   return Column(
                     children: List.generate(grouped.length * 2 - 1, (i) {
@@ -425,26 +429,11 @@ class _buildDeviceLogWidget extends StatelessWidget {
                 final latestDay = data
                     .where((d) => d['sleep_mode'].toString().contains('낮잠'))
                     .toList()
-                    .reversed
                     .firstWhere((_) => true, orElse: () => {});
                 final latestNight = data
                     .where((d) => d['sleep_mode'].toString().contains('밤잠'))
                     .toList()
-                    .reversed
                     .firstWhere((_) => true, orElse: () => {});
-
-                String formatKoreanTime(String? raw) {
-                  if (raw == null) return '시간 없음';
-                  try {
-                    final dt = HttpDate.parse(raw).toLocal(); // Convert RFC 1123 to DateTime
-                    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-                    final period = dt.hour < 12 ? '오전' : '오후';
-                    final minute = dt.minute.toString().padLeft(2, '0');
-                    return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')} $period $hour:$minute';
-                  } catch (e) {
-                    return '날짜 오류';
-                  }
-                }
 
                 return Column(
                   children: [
@@ -452,7 +441,7 @@ class _buildDeviceLogWidget extends StatelessWidget {
                       image: 'assets/images/eggie_day_sleep.png',
                       title: '낮잠',
                       date: latestDay.isNotEmpty
-                          ? formatKoreanTime(latestDay['recorded_at'])
+                          ? formatKoreanDateTime(latestDay['recorded_at'])
                           : '기록 없음',
                     ),
                     const _buildDevider(),
@@ -460,7 +449,7 @@ class _buildDeviceLogWidget extends StatelessWidget {
                       image: 'assets/images/eggie_night_sleep.png',
                       title: '밤잠',
                       date: latestNight.isNotEmpty
-                          ? formatKoreanTime(latestNight['recorded_at'])
+                          ? formatKoreanDateTime(latestNight['recorded_at'])
                           : '기록 없음',
                     ),
                   ],

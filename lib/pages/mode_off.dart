@@ -9,9 +9,8 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:io';
-
 import '../services/api.dart';
+import 'package:eggie2/utils/time_formatter.dart';
 
 
 class ModeOffPage extends StatefulWidget {
@@ -61,15 +60,12 @@ class _ModeOffPageState extends State<ModeOffPage> {
     'sound': 1,
   };
 
-  String? _nextModeLabel;
-
   @override
   void initState() {
     super.initState();
     _setModeBasedOnTime(); // 페이지 진입 시 시간 기준으로 탭 설정
     _loadSavedStates().then((_) => _fetchAutoEnvValues());
     _fetchNextSleepModeLabel();
-    _fetchTodayLogs(); // Pre-fetch logs once
 
     // 페이지 로드 후 바텀 시트 표시
     if (widget.showStopModal) {
@@ -88,11 +84,15 @@ class _ModeOffPageState extends State<ModeOffPage> {
 
   Future<void> _fetchNextSleepModeLabel() async {
     try {
-      final today = DateTime.now();
+      // final today = DateTime.now(); // ✅ 현재 날짜로 변경하려면 이렇게 설정
+      final today = DateTime(2024, 9, 16); // 🔧 테스트용 하드코딩된 날짜
       final formatter = DateFormat('yyyy-MM-dd');
-      final dateStr = formatter.format(today);
+      final startDt = formatter.format(today);
+      final endDt = formatter.format(today.add(const Duration(days: 1))); // ✅ 하루 더해줘야 함
+
       final url = Uri.parse(
-          '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$dateStr&end_dt=${dateStr}');
+        '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt'
+      );
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -961,7 +961,6 @@ class _ModeOffPageState extends State<ModeOffPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 제목 + 드롭다운 아이콘
           InkWell(
             onTap: () {
               setState(() {
@@ -992,33 +991,39 @@ class _ModeOffPageState extends State<ModeOffPage> {
               ),
             ),
           ),
-
           // 로그 아이템들 - 펼침 상태일 때만 표시
           if (_isLogExpanded)
-            FutureBuilder<List<Map<String, String>>>(
-              future: _fetchTodayLogs(),
+            FutureBuilder<Map<String, dynamic>>(
+              future: fetchTodaySleepLogs(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
                 } else if (snapshot.hasError) {
                   return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('사용 내역을 불러오는 중 오류가 발생했습니다.'),
-                  );
-                } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.all(16),
-                    child: Text('오늘 사용 내역이 없습니다.'),
+                    padding: EdgeInsets.all(8.0),
+                    child: Text('에러 발생'),
                   );
                 } else {
-                  return Column(
-                    children: snapshot.data!
-                        .map((log) => _buildTodayLogItem(
-                              title: log['title']!,
-                              timeRange: log['timeRange']!,
-                            ))
-                        .toList(),
-                  );
+                  final logs = (snapshot.data?['logs'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+
+                  final grouped = logs.map((log) {
+                    final title = log['sleep_mode'] ?? '기타';
+                    final rawStart = log['recorded_at'];
+                    final rawEnd = log['end_time'];
+
+                    final start = formatKoreanTime(rawStart);
+                    final end = formatKoreanTime(rawEnd);
+
+                    return _buildTodayLogItem(
+                      title: title,
+                      timeRange: '$start - $end',
+                    );
+                  }).toList();
+
+                  return Column(children: grouped);
                 }
               },
             ),
@@ -1026,18 +1031,46 @@ class _ModeOffPageState extends State<ModeOffPage> {
       ),
     );
   }
-  Future<List<Map<String, String>>> _fetchTodayLogs() async {
-    return [
-      {
-        'title': '낮잠 1',
-        'timeRange': '오전 9:00 - 오전 10:30',
-      },
-      {
-        'title': '밤잠 1',
-        'timeRange': '오후 8:00 - 오후 9:20',
-      },
-    ];
+
+  Future<Map<String, dynamic>> fetchTodaySleepLogs() async {
+    // final today = DateTime.now(); // ✅ 실제 동작 시 현재 날짜로 설정
+    final today = DateTime(2024, 9, 16); // 🔧 테스트용 하드코딩된 날짜
+    final formatter = DateFormat('yyyy-MM-dd');
+    final startDt = formatter.format(today);
+    final endDt = formatter.format(today.add(const Duration(days: 1)));
+
+    final response = await http.get(Uri.parse(
+        '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt'));
+
+    if (response.statusCode == 200) {
+      final List<dynamic> logs = jsonDecode(response.body);
+      int maxDayIndex = 0;
+      int maxNightIndex = 0;
+
+      for (var log in logs) {
+        final modeString = log['sleep_mode'] ?? '';
+        final dayMatch = RegExp(r'낮잠(\d+)').firstMatch(modeString);
+        final nightMatch = RegExp(r'밤잠(\d+)').firstMatch(modeString);
+
+        if (dayMatch != null) {
+          final index = int.tryParse(dayMatch.group(1) ?? '0') ?? 0;
+          if (index > maxDayIndex) maxDayIndex = index;
+        } else if (nightMatch != null) {
+          final index = int.tryParse(nightMatch.group(1) ?? '0') ?? 0;
+          if (index > maxNightIndex) maxNightIndex = index;
+        }
+      }
+
+      return {
+        'logs': List<Map<String, dynamic>>.from(logs),
+        'next_day_label': '낮잠${maxDayIndex + 1}',
+        'next_night_label': '밤잠${maxNightIndex + 1}',
+      };
+    } else {
+      throw Exception('Failed to load sleep logs');
+    }
   }
+
 
   Widget _buildTodayLogItem({
     required String title,

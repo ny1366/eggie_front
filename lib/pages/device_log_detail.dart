@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'dart:io';
 import 'package:eggie2/services/api.dart';
 
+/// A page that displays detailed device log information for a specific recorded time.
 class DeviceLogDetailPage extends StatefulWidget {
   final DateTime recordedAt;
   const DeviceLogDetailPage({super.key, required this.recordedAt});
@@ -13,6 +15,7 @@ class DeviceLogDetailPage extends StatefulWidget {
 }
 
 class _DeviceLogDetailPageState extends State<DeviceLogDetailPage> {
+  /// Checks if two DateTime objects represent the same minute.
   bool isSameMinute(DateTime a, DateTime b) {
     return a.year == b.year &&
         a.month == b.month &&
@@ -20,6 +23,7 @@ class _DeviceLogDetailPageState extends State<DeviceLogDetailPage> {
         a.hour == b.hour &&
         a.minute == b.minute;
   }
+
   Map<String, dynamic>? detail;
 
   @override
@@ -28,6 +32,7 @@ class _DeviceLogDetailPageState extends State<DeviceLogDetailPage> {
     fetchDetail();
   }
 
+  /// Fetches detailed log data from the API and finds the entry matching the recordedAt minute.
   Future<void> fetchDetail() async {
     final url = Uri.parse('${getBaseUrl()}/detailed-history/1');
     final response = await http.get(url);
@@ -35,18 +40,10 @@ class _DeviceLogDetailPageState extends State<DeviceLogDetailPage> {
     if (response.statusCode == 200) {
       List<dynamic> data = jsonDecode(response.body);
 
-      print('📦 Flutter recordedAt: ${widget.recordedAt}');
       for (var item in data) {
-        final parsed = DateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", 'en_US')
-            .parse(item['recorded_at'], true)
-            .toLocal();
-        print('🕒 Flask parsed recorded_at: $parsed');
-      }
-
-      for (var item in data) {
-        final parsed = DateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", 'en_US')
-            .parse(item['recorded_at'], true)
-            .toLocal();
+        // Ensure recorded_at is in RFC 1123 format, e.g., "Mon, 27 May 2024 00:00:00 GMT"
+        // Parse it using HttpDate.parse
+        final parsed = HttpDate.parse(item['recorded_at']).toLocal();
 
         if (isSameMinute(parsed, widget.recordedAt)) {
           setState(() {
@@ -92,6 +89,7 @@ class _DeviceLogDetailPageState extends State<DeviceLogDetailPage> {
     );
   }
 
+  /// Builds the environment information section showing temperature, humidity, brightness, and noise level.
   Container _buildEnvInfoWidget(Map<String, dynamic> data) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -116,6 +114,7 @@ class _DeviceLogDetailPageState extends State<DeviceLogDetailPage> {
     );
   }
 
+  /// Builds the course option section showing preset options and some environment data.
   Container _buildCourseOptionWidget(Map<String, dynamic> data) {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
