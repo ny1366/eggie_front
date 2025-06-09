@@ -1,0 +1,21 @@
+# Flutter/Dart 기본 ignore 설정
+
+# 빌드 결과물
+build/
+.dart_tool/
+.packages
+.pub/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+
+# IDE 설정
+.idea/
+.vscode/
+*.iml
+
+# macOS
+.DS_Store
+
+# 임시 파일
+*.log
