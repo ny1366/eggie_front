@@ -134,8 +134,8 @@ class _DeviceOffState extends State<DeviceOff> {
           padding: const EdgeInsets.only(top: 8, bottom: 24),
           child: Center(
             child: Container(
-              width: 240,
-              height: 48,
+              width: 230,
+              height: 40,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(100),
@@ -160,8 +160,9 @@ class _DeviceOffState extends State<DeviceOff> {
                           '제품',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            height: 18 / 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -174,8 +175,12 @@ class _DeviceOffState extends State<DeviceOff> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => const UsefulFunctionPage(),
+                          PageRouteBuilder(
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    const UsefulFunctionPage(),
+                            transitionDuration: Duration.zero,
+                            reverseTransitionDuration: Duration.zero,
                           ),
                         );
                       },
@@ -184,8 +189,9 @@ class _DeviceOffState extends State<DeviceOff> {
                           '유용한 기능',
                           style: TextStyle(
                             color: Color(0xFF606C80),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            height: 18 / 12,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
@@ -424,7 +430,12 @@ class _buildGoSLDetailPage extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const TodaySleepLogPage()),
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const TodaySleepLogPage(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
         );
       },
       child: Padding(
@@ -498,6 +509,21 @@ class _buildDeviceLogWidget extends StatelessWidget {
                     .toList()
                     .firstWhere((_) => true, orElse: () => {});
 
+                String formatKoreanTime(String? raw) {
+                  if (raw == null) return '시간 없음';
+                  try {
+                    final dt = HttpDate.parse(
+                      raw,
+                    ).toLocal(); // Convert RFC 1123 to DateTime
+                    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
+                    final period = dt.hour < 12 ? '오전' : '오후';
+                    final minute = dt.minute.toString().padLeft(2, '0');
+                    return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')} $period $hour:$minute';
+                  } catch (e) {
+                    return '날짜 오류';
+                  }
+                }
+
                 return Column(
                   children: [
                     _buildDeviceLogItem(
@@ -544,7 +570,12 @@ class _buildDeviceLog extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const CurrentLogPage()),
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const CurrentLogPage(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
         );
       },
       child: Padding(
@@ -594,7 +625,12 @@ class _buildDeviceStatusState extends State<_buildDeviceStatus> {
     if (mounted) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const ModeOffPage()),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const ModeOffPage(),
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+        ),
       );
     }
   }
@@ -693,7 +729,12 @@ PreferredSizeWidget _buildEggieTopBar(BuildContext context) {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const DevicePage()),
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        const DevicePage(),
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                  ),
                 );
               },
               color: const Color(0xFF606C80),

@@ -472,8 +472,8 @@ class _ModeOffPageState extends State<ModeOffPage> {
           padding: const EdgeInsets.only(top: 8, bottom: 24),
           child: Center(
             child: Container(
-              width: 240,
-              height: 48,
+              width: 230,
+              height: 40,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(100),
@@ -498,8 +498,9 @@ class _ModeOffPageState extends State<ModeOffPage> {
                           '제품',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            height: 18 / 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -512,8 +513,12 @@ class _ModeOffPageState extends State<ModeOffPage> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => const UsefulFunctionPage(),
+                          PageRouteBuilder(
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    const UsefulFunctionPage(),
+                            transitionDuration: Duration.zero,
+                            reverseTransitionDuration: Duration.zero,
                           ),
                         );
                       },
@@ -522,8 +527,9 @@ class _ModeOffPageState extends State<ModeOffPage> {
                           '유용한 기능',
                           style: TextStyle(
                             color: Color(0xFF606C80),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            height: 18 / 12,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
@@ -972,7 +978,12 @@ class _ModeOffPageState extends State<ModeOffPage> {
 
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const DeviceOff()),
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      const DeviceOff(),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
               );
             },
           ),
@@ -1242,7 +1253,12 @@ class _ModeOffPageState extends State<ModeOffPage> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const TodaySleepLogPage()),
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const TodaySleepLogPage(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
         );
       },
       child: Padding(
@@ -1284,7 +1300,12 @@ class _ModeOffPageState extends State<ModeOffPage> {
 
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const ModeOnPage()),
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    const ModeOnPage(),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              ),
             );
           },
           style: ElevatedButton.styleFrom(
@@ -1374,7 +1395,12 @@ PreferredSizeWidget _buildEggieTopBar(BuildContext context) {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const DevicePage()),
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        const DevicePage(),
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                  ),
                 );
               },
               color: const Color(0xFF606C80),
