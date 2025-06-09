@@ -78,14 +78,15 @@ class CurrentLogPage extends StatelessWidget {
       List<dynamic> data = jsonDecode(response.body);
       // Parsing 'recorded_at' field instead of 'start_time' from API response
       return data.map<Map<String, String>>((item) {
-        final rawDate = DateFormat("EEE, dd MMM yyyy HH:mm:ss 'GMT'", 'en_US').parse(item["recorded_at"]);
-        final formattedDate = "${rawDate.year}.${rawDate.month.toString().padLeft(2, '0')}.${rawDate.day.toString().padLeft(2, '0')} "
-          "${rawDate.hour < 12 ? '오전' : '오후'} ${rawDate.hour % 12 == 0 ? 12 : rawDate.hour % 12}:${rawDate.minute.toString().padLeft(2, '0')}";
+        final rawDate = DateFormat(
+          "EEE, dd MMM yyyy HH:mm:ss 'GMT'",
+          'en_US',
+        ).parse(item["recorded_at"]);
+        final formattedDate =
+            "${rawDate.year}.${rawDate.month.toString().padLeft(2, '0')}.${rawDate.day.toString().padLeft(2, '0')} "
+            "${rawDate.hour < 12 ? '오전' : '오후'} ${rawDate.hour % 12 == 0 ? 12 : rawDate.hour % 12}:${rawDate.minute.toString().padLeft(2, '0')}";
 
-        return {
-          "date": formattedDate,
-          "modeIndex": item["sleep_mode"]
-        };
+        return {"date": formattedDate, "modeIndex": item["sleep_mode"]};
       }).toList();
     } else {
       throw Exception("데이터 로딩 실패");
@@ -106,8 +107,11 @@ class CurrentLogPage extends StatelessWidget {
         final rawDate = DateFormat("yyyy.MM.dd a h:mm", 'ko_KR').parse(date);
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (context) => DeviceLogDetailPage(recordedAt: rawDate),
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                DeviceLogDetailPage(recordedAt: rawDate),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
           ),
         );
       },

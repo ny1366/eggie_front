@@ -183,8 +183,34 @@ class _ModeOnPageState extends State<ModeOnPage> {
     });
   }
 
-  // 탭 전환 - 자유롭게 이동 가능
+  // 탭 전환 - 수면 중일 때는 변경 불가
   void _onTabChanged(bool isNapMode) {
+    // 현재 수면 세션이 활성화되어 있는지 확인
+    bool isSleepSessionActive =
+        sleepStartTime != null && currentSleepStatus == SleepStatus.sleeping;
+
+    if (isSleepSessionActive) {
+      // 수면 중일 때 탭 변경 시도하면 SnackBar 표시
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            '실행 중에는 모드 변경이 어려워요.',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w400,
+              color: Colors.white,
+            ),
+          ),
+          backgroundColor: Color(0xFF606C80),
+          duration: Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.all(16),
+        ),
+      );
+      return; // 탭 변경 차단
+    }
+
+    // 수면 중이 아닐 때만 탭 변경 허용
     setState(() {
       isNap = isNapMode;
     });
@@ -226,8 +252,11 @@ class _ModeOnPageState extends State<ModeOnPage> {
     _statusCheckTimer?.cancel(); // 모니터링 중지
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => const ModeOffPage(showStopModal: true),
+      PageRouteBuilder(
+        pageBuilder: (context, animation, secondaryAnimation) =>
+            const ModeOffPage(showStopModal: true),
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
       ),
     );
   }
@@ -306,12 +335,14 @@ class _ModeOnPageState extends State<ModeOnPage> {
         final List<dynamic> data = jsonDecode(response.body);
         print('✅ API result: $data');
 
-
         if (data.isNotEmpty) {
           final latest = data.first;
           final endTime = DateTime.parse(latest['expected_end_at']);
-          final formatted = DateFormat('a hh:mm', 'ko_KR').format(endTime).replaceAll('AM', '오전').replaceAll('PM', '오후');
-          
+          final formatted = DateFormat(
+            'a hh:mm',
+            'ko_KR',
+          ).format(endTime).replaceAll('AM', '오전').replaceAll('PM', '오후');
+
           print('✅ Formatted expected end time: $formatted');
 
           setState(() {
@@ -319,7 +350,9 @@ class _ModeOnPageState extends State<ModeOnPage> {
           });
         }
       } else {
-        print('🔴 Failed to fetch expected sleep end time: ${response.statusCode}');
+        print(
+          '🔴 Failed to fetch expected sleep end time: ${response.statusCode}',
+        );
       }
     } catch (e) {
       print('🔴 Error fetching expected sleep end time: $e');
@@ -336,7 +369,9 @@ class _ModeOnPageState extends State<ModeOnPage> {
     _sleepTimer?.cancel();
 
     // 예상 완료 시간을 DateTime으로 변환
-    sleepExpectedEndDateTime = _parseExpectedEndTimeLegacy(sleepExpectedEndTime);
+    sleepExpectedEndDateTime = _parseExpectedEndTimeLegacy(
+      sleepExpectedEndTime,
+    );
     // 👉 TODO: DB에서 받아온 실제 완료 시간으로 교체
 
     print('Sleep timer started:');
@@ -595,7 +630,12 @@ class _ModeOnPageState extends State<ModeOnPage> {
 
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const DeviceOff()),
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      const DeviceOff(),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
               );
             },
           ),
@@ -738,19 +778,20 @@ class _ModeOnPageState extends State<ModeOnPage> {
 
   Widget _buildAutoModeContent() {
     // 자동 설정값을 서버에서 불러와서 사용
-    return FutureBuilder< Map<String, String> >(
+    return FutureBuilder<Map<String, String>>(
       future: _fetchAutoEnvValues(),
       builder: (context, snapshot) {
-        final envValues = snapshot.data ??
-            {
-              'temp': '--',
-              'humidity': '--',
-              'brightness': '--',
-              'sound': '--',
-            };
+        final envValues =
+            snapshot.data ??
+            {'temp': '--', 'humidity': '--', 'brightness': '--', 'sound': '--'};
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 16),
-          padding: const EdgeInsets.only(left: 24, right: 24, top: 22, bottom: 6),
+          padding: const EdgeInsets.only(
+            left: 24,
+            right: 24,
+            top: 22,
+            bottom: 6,
+          ),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -1054,8 +1095,8 @@ class _ModeOnPageState extends State<ModeOnPage> {
           padding: const EdgeInsets.only(top: 8, bottom: 24),
           child: Center(
             child: Container(
-              width: 240,
-              height: 48,
+              width: 230,
+              height: 40,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(100),
@@ -1080,8 +1121,9 @@ class _ModeOnPageState extends State<ModeOnPage> {
                           '제품',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            height: 18 / 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -1094,8 +1136,12 @@ class _ModeOnPageState extends State<ModeOnPage> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => const UsefulFunctionPage(),
+                          PageRouteBuilder(
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    const UsefulFunctionPage(),
+                            transitionDuration: Duration.zero,
+                            reverseTransitionDuration: Duration.zero,
                           ),
                         );
                       },
@@ -1104,8 +1150,9 @@ class _ModeOnPageState extends State<ModeOnPage> {
                           '유용한 기능',
                           style: TextStyle(
                             color: Color(0xFF606C80),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            height: 18 / 12,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
@@ -1130,7 +1177,12 @@ class _buildGoSLDetailPage extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const TodaySleepLogPage()),
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const TodaySleepLogPage(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
         );
       },
       child: Padding(
@@ -1251,7 +1303,12 @@ PreferredSizeWidget _buildEggieTopBar(BuildContext context) {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const DevicePage()),
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        const DevicePage(),
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                  ),
                 );
               },
               color: const Color(0xFF606C80),

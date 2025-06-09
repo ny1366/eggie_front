@@ -12,7 +12,6 @@ import 'package:intl/intl.dart';
 import '../services/api.dart';
 import 'dart:io'; // Ensure this import is present at the top
 
-
 Future<List<Map<String, dynamic>>> fetchLatestSleepLogs() async {
   // final today = DateTime.now();
   final today = DateTime(2024, 9, 16); // ✅ 하드코딩된 날짜 (임시)
@@ -20,7 +19,11 @@ Future<List<Map<String, dynamic>>> fetchLatestSleepLogs() async {
   final startDt = formatter.format(today);
   final endDt = formatter.format(today.add(const Duration(days: 1)));
 
-  final response = await http.get(Uri.parse('${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt'));
+  final response = await http.get(
+    Uri.parse(
+      '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt',
+    ),
+  );
   print('🔍 sleep-mode-format response: ${response.body}');
   if (response.statusCode == 200) {
     return List<Map<String, dynamic>>.from(jsonDecode(response.body));
@@ -90,8 +93,8 @@ class _DeviceOffState extends State<DeviceOff> {
           padding: const EdgeInsets.only(top: 8, bottom: 24),
           child: Center(
             child: Container(
-              width: 240,
-              height: 48,
+              width: 230,
+              height: 40,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(100),
@@ -116,8 +119,9 @@ class _DeviceOffState extends State<DeviceOff> {
                           '제품',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            height: 18 / 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -130,8 +134,12 @@ class _DeviceOffState extends State<DeviceOff> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => const UsefulFunctionPage(),
+                          PageRouteBuilder(
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    const UsefulFunctionPage(),
+                            transitionDuration: Duration.zero,
+                            reverseTransitionDuration: Duration.zero,
                           ),
                         );
                       },
@@ -140,8 +148,9 @@ class _DeviceOffState extends State<DeviceOff> {
                           '유용한 기능',
                           style: TextStyle(
                             color: Color(0xFF606C80),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            height: 18 / 12,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
@@ -300,8 +309,12 @@ class _DeviceOffState extends State<DeviceOff> {
                     final rawStart = log['recorded_at'];
                     final rawEnd = log['end_time'];
 
-                    final start = rawStart != null ? formatKoreanTime(rawStart) : '시간 없음';
-                    final end = rawEnd != null ? formatKoreanTime(rawEnd) : '시간 없음';
+                    final start = rawStart != null
+                        ? formatKoreanTime(rawStart)
+                        : '시간 없음';
+                    final end = rawEnd != null
+                        ? formatKoreanTime(rawEnd)
+                        : '시간 없음';
 
                     return _buildTodayLogItem(
                       title: title,
@@ -359,7 +372,12 @@ class _buildGoSLDetailPage extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const TodaySleepLogPage()),
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const TodaySleepLogPage(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
         );
       },
       child: Padding(
@@ -436,7 +454,9 @@ class _buildDeviceLogWidget extends StatelessWidget {
                 String formatKoreanTime(String? raw) {
                   if (raw == null) return '시간 없음';
                   try {
-                    final dt = HttpDate.parse(raw).toLocal(); // Convert RFC 1123 to DateTime
+                    final dt = HttpDate.parse(
+                      raw,
+                    ).toLocal(); // Convert RFC 1123 to DateTime
                     final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
                     final period = dt.hour < 12 ? '오전' : '오후';
                     final minute = dt.minute.toString().padLeft(2, '0');
@@ -492,7 +512,12 @@ class _buildDeviceLog extends StatelessWidget {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const CurrentLogPage()),
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const CurrentLogPage(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
         );
       },
       child: Padding(
@@ -542,7 +567,12 @@ class _buildDeviceStatusState extends State<_buildDeviceStatus> {
     if (mounted) {
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const ModeOffPage()),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const ModeOffPage(),
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+        ),
       );
     }
   }
@@ -641,7 +671,12 @@ PreferredSizeWidget _buildEggieTopBar(BuildContext context) {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const DevicePage()),
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        const DevicePage(),
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                  ),
                 );
               },
               color: const Color(0xFF606C80),

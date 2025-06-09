@@ -10,11 +10,11 @@
 		</data>
 		<key>flutter_assets/AssetManifest.bin</key>
 		<data>
-		sShQqt6fMVSdMPnx8NJg8qQh7JE=
+		6RU/oqQVZkNQqiNoN8frce0YfZc=
 		</data>
 		<key>flutter_assets/AssetManifest.json</key>
 		<data>
-		5Ca0R9F7GctnVTBpkyh4oWwN8eA=
+		wWPWDXLeO2GH+WX3wcfS3vFAmb0=
 		</data>
 		<key>flutter_assets/FontManifest.json</key>
 		<data>
@@ -22,7 +22,7 @@
 		</data>
 		<key>flutter_assets/NOTICES.Z</key>
 		<data>
-		xwzIaUfZ7KhlIhxJgkomtYDrF5I=
+		XhjmNvM9LbO5oBxcveopiBJwq7o=
 		</data>
 		<key>flutter_assets/NativeAssetsManifest.json</key>
 		<data>
@@ -35,6 +35,14 @@
 		<key>flutter_assets/assets/icons/arrowsmall_right.svg</key>
 		<data>
 		4qfgQ1EfLnAgYQwlPNx7baw5xVM=
+		</data>
+		<key>flutter_assets/assets/icons/bar_clicked_day.svg</key>
+		<data>
+		LHhu+AvvIGsE6oegvhTVEi216cI=
+		</data>
+		<key>flutter_assets/assets/icons/bar_clicked_night.svg</key>
+		<data>
+		dlmaLoHrbJJ3AlsPuje4ZqGaqFM=
 		</data>
 		<key>flutter_assets/assets/icons/device_icon.svg</key>
 		<data>
@@ -68,6 +76,30 @@
 		<data>
 		Et8KLEqU/witSLab4kCmZV8N+qk=
 		</data>
+		<key>flutter_assets/assets/icons/sleep_log_circle_1.svg</key>
+		<data>
+		qNKBUzq86ByjQ66N7Z3kXwqYnEY=
+		</data>
+		<key>flutter_assets/assets/icons/sleep_log_circle_2.svg</key>
+		<data>
+		9yjzyzREBmuJAMytsTSc0ndIqyA=
+		</data>
+		<key>flutter_assets/assets/icons/sleep_log_circle_3.svg</key>
+		<data>
+		Vf+VNE9spQms1tEW7/hPVM8IVJ0=
+		</data>
+		<key>flutter_assets/assets/icons/sleep_log_circle_4.svg</key>
+		<data>
+		TwzmSCdsIGN9eB81/bt6ZE/iNnY=
+		</data>
+		<key>flutter_assets/assets/icons/sleep_log_circle_5.svg</key>
+		<data>
+		XpU5AQ/JJpJEd4mn/aYG8ScLScA=
+		</data>
+		<key>flutter_assets/assets/icons/sleep_log_circle_6.svg</key>
+		<data>
+		mlulW22aFNwh9AFc3X5sVXfyTe4=
+		</data>
 		<key>flutter_assets/assets/icons/stop.svg</key>
 		<data>
 		0BCcRvQXHeMrVpawAnxuaCLRip4=
@@ -80,13 +112,41 @@
 		<data>
 		5Ud/SpY8NGzxN2Vsqea1s5d5EYI=
 		</data>
+		<key>flutter_assets/assets/icons/video_play.svg</key>
+		<data>
+		rT3RhEYlq6JER6bFy7y5BtJAd48=
+		</data>
+		<key>flutter_assets/assets/images/.DS_Store</key>
+		<data>
+		3y++sUAKzaCQmjLBz2v0kvESHgc=
+		</data>
 		<key>flutter_assets/assets/images/EGGie_device.png</key>
 		<data>
 		FSrtOXLUzyxugMjdsNubSmWDpu4=
 		</data>
+		<key>flutter_assets/assets/images/baby_firstroll.png</key>
+		<data>
+		/3xg69xLpxNe+tHrGJbXyuob2KY=
+		</data>
+		<key>flutter_assets/assets/images/baby_headup.png</key>
+		<data>
+		O15nEVCetrrnWY6ZKZxntbVQTKw=
+		</data>
+		<key>flutter_assets/assets/images/bottlewasher.png</key>
+		<data>
+		MzsMl1FTmzRfM8zwjzdJT83kiNs=
+		</data>
 		<key>flutter_assets/assets/images/brightness.png</key>
 		<data>
 		CcMs6jFWys9Gh0JpHFhGIZLFXOI=
+		</data>
+		<key>flutter_assets/assets/images/calendar.png</key>
+		<data>
+		mJ2tJOSojn9wisJY5sc+pDfJFHM=
+		</data>
+		<key>flutter_assets/assets/images/cleaning_service.png</key>
+		<data>
+		ndoNkoALXnyv2tBmEyv/Iyxz00Y=
 		</data>
 		<key>flutter_assets/assets/images/dehumid.png</key>
 		<data>
@@ -108,6 +168,14 @@
 		<data>
 		nmINuGlMcDfE/DqS1AX/s18XRTY=
 		</data>
+		<key>flutter_assets/assets/images/energy_log.png</key>
+		<data>
+		/yh7pUGKLDN6qhn7EtSUkHcOLrw=
+		</data>
+		<key>flutter_assets/assets/images/energy_monitor.png</key>
+		<data>
+		ewtqYlVjBrF2FXeqRJJyYhoUndI=
+		</data>
 		<key>flutter_assets/assets/images/gpt_baby.png</key>
 		<data>
 		YI0n2mqYjoVcstcgRmcuofPYsYo=
@@ -124,6 +192,10 @@
 		<data>
 		oRL3I+G+twkBDHrY9HQwI/KVbPU=
 		</data>
+		<key>flutter_assets/assets/images/homecam.png</key>
+		<data>
+		rWpIaTsUJ0A0067NGtUcCK41Vao=
+		</data>
 		<key>flutter_assets/assets/images/humid.png</key>
 		<data>
 		aeN9GajsqHidbD6JoxS2gyWvh60=
@@ -131,6 +203,10 @@
 		<key>flutter_assets/assets/images/humidity.png</key>
 		<data>
 		VcuaxepXQ6IQ0fitGtTm7JAOuDs=
+		</data>
+		<key>flutter_assets/assets/images/product.png</key>
+		<data>
+		jKTXN+Rb+hXW1Hi9h2xPUb/Q6bs=
 		</data>
 		<key>flutter_assets/assets/images/sound.png</key>
 		<data>
@@ -146,11 +222,11 @@
 		</data>
 		<key>flutter_assets/isolate_snapshot_data</key>
 		<data>
-		PgYZNgZ7nxC3tFt+nGCEL6wxuNY=
+		d/HDCIMboLCfzG8D0k6cTv3TOCY=
 		</data>
 		<key>flutter_assets/kernel_blob.bin</key>
 		<data>
-		ec1p8wE76q6u+RP93abmYX+drx4=
+		FBMXbk2Chloy2B8XJDx68Xi41ho=
 		</data>
 		<key>flutter_assets/shaders/ink_sparkle.frag</key>
 		<data>
@@ -167,14 +243,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			3//rMf55jscYvGMphLeoVzZ1kTyBNx0oe0ToSBKG8o4=
+			KcD6K6i7EhYy1Bfsr+Nu2k9XPhuqzA51h//nVE9IEDA=
 			</data>
 		</dict>
 		<key>flutter_assets/AssetManifest.json</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			xzXleJ9LdlvKXBCzgyGHtptS5IBUaygBnRha1TYO9cg=
+			6g/6GqL808XiPf/p5g8tCwcQz4LwQsKHq5ialScyxZs=
 			</data>
 		</dict>
 		<key>flutter_assets/FontManifest.json</key>
@@ -188,7 +264,7 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			//7PuD1HGBoY1qGpjOan/S3G2NGYVddGstQZBcbSwwk=
+			JIY5ks7A/QwGBwBNQeCqPKrfVPRYZ05f/tYUozlvmMY=
 			</data>
 		</dict>
 		<key>flutter_assets/NativeAssetsManifest.json</key>
@@ -210,6 +286,20 @@
 			<key>hash2</key>
 			<data>
 			I8psNYp6OLW6gp2eYGBkhAy4C4j/FdSCW+BtIqb8mWA=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/icons/bar_clicked_day.svg</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			Q+i/fT3Ssa8hiOFBkpyDCtDtTlF1oB909zCll3aKLig=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/icons/bar_clicked_night.svg</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			Np4Z1i4SYkpDzrly+Klpzj8LNT2EzdnAbhUErEPx6XI=
 			</data>
 		</dict>
 		<key>flutter_assets/assets/icons/device_icon.svg</key>
@@ -268,6 +358,48 @@
 			bK0YXI4m2jInCA08QBH5zSXWUuq7EM4a6w0G3H0/Rmc=
 			</data>
 		</dict>
+		<key>flutter_assets/assets/icons/sleep_log_circle_1.svg</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			oRdv9LAiC/VLNzRbXQiHIrV5slLNCchDEf6XvJ8vDfs=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/icons/sleep_log_circle_2.svg</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			fhBZKn6HCzIzuMlAL6zP0v/IyjR+hB0FusaOyacMtJ8=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/icons/sleep_log_circle_3.svg</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			ReMymxKeVyVyTHzxlqFnnUVLZZVuZtQiM7zWktW0XNA=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/icons/sleep_log_circle_4.svg</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			XCi98tq9zR8Rjh4GuU+4/31NVt/O4qcUo9/kYLAoRgk=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/icons/sleep_log_circle_5.svg</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			IzJ3F7slcOVT2Side7Rqknw/HF8TeGSpxtmTt0E+4p8=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/icons/sleep_log_circle_6.svg</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			tGML4wqH8y4KFyO65gOF65C86lg0k1ioD4+mUOI7ero=
+			</data>
+		</dict>
 		<key>flutter_assets/assets/icons/stop.svg</key>
 		<dict>
 			<key>hash2</key>
@@ -289,6 +421,13 @@
 			PQ+3HPtzMJ5PxYdX2RBFoGIRAh4w9KnxmuCSJsXSYhw=
 			</data>
 		</dict>
+		<key>flutter_assets/assets/icons/video_play.svg</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			7kG7h2OVak3FoBHyCsdbk27jfw6KfV4QE+Tkafr8nOE=
+			</data>
+		</dict>
 		<key>flutter_assets/assets/images/EGGie_device.png</key>
 		<dict>
 			<key>hash2</key>
@@ -296,11 +435,46 @@
 			QhHbBu2v5ba+ENsr3cCgBZixe1FUhG6Jjbk5O/I8shI=
 			</data>
 		</dict>
+		<key>flutter_assets/assets/images/baby_firstroll.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			JNVLBy7p1OTw1zqo1sFqUSRUWzD5gQ60gdGhTNf55GY=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/images/baby_headup.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			HiYUawrOoRL1nSgWn72wbnSDKvxIXKpkRwEDbETExxc=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/images/bottlewasher.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			b6m742PRAjKurvsQMa5bIkCz/egA7xNOGyMD4rpuRxw=
+			</data>
+		</dict>
 		<key>flutter_assets/assets/images/brightness.png</key>
 		<dict>
 			<key>hash2</key>
 			<data>
 			3kLBs6t7TH/SClGmbngP/tRSvWVJgRqNzKKGUBUBBLU=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/images/calendar.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			sV/RPnavi6GsFENZLQvRWOO+KPM7yUbdQGEJ0iSiZBU=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/images/cleaning_service.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			ttQVXk3mhN8aTHhzdwlYWfJtsqk121zriYL/p47nqh4=
 			</data>
 		</dict>
 		<key>flutter_assets/assets/images/dehumid.png</key>
@@ -338,6 +512,20 @@
 			G1gZ4+ViEyFekTAYYvDxiwihR0KFyJ5Gwr+P8KdJToA=
 			</data>
 		</dict>
+		<key>flutter_assets/assets/images/energy_log.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			0naufCWTTPkxbb5QVV5r3Y5ccAp9eJp/fM4Y+h+Iy7o=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/images/energy_monitor.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			SWbrASigI/keGAwBVAr2hQW6VtjTKoslHwpPMid35Gw=
+			</data>
+		</dict>
 		<key>flutter_assets/assets/images/gpt_baby.png</key>
 		<dict>
 			<key>hash2</key>
@@ -366,6 +554,13 @@
 			/KzKmnJwoeSSBlrRY7CyQYRXtHwovpbClTbV1PMzVVY=
 			</data>
 		</dict>
+		<key>flutter_assets/assets/images/homecam.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			Cswzted/ej7rs4+HN01FaJVKUtBS1+9O2OOTOELkCeE=
+			</data>
+		</dict>
 		<key>flutter_assets/assets/images/humid.png</key>
 		<dict>
 			<key>hash2</key>
@@ -378,6 +573,13 @@
 			<key>hash2</key>
 			<data>
 			AIaesjN4SQ7UhsUKrqLjFoA8SgVD47j9KOSyoAy8CcU=
+			</data>
+		</dict>
+		<key>flutter_assets/assets/images/product.png</key>
+		<dict>
+			<key>hash2</key>
+			<data>
+			49syFxf+vNlnWbSFhJDgwe+3vkTCYKXWzCK7siXN3pw=
 			</data>
 		</dict>
 		<key>flutter_assets/assets/images/sound.png</key>
@@ -405,14 +607,14 @@
 		<dict>
 			<key>hash2</key>
 			<data>
-			Y6T4MBhQBv9hSvbFzkj/7l2qb75MlOBIl0B6jKveoKE=
+			x3o75lN72Az4wV2tFy/JH3xEUQUcGNdFggXAnzUW2bA=
 			</data>
 		</dict>
 		<key>flutter_assets/kernel_blob.bin</key>
 		<dict>
 			<key>hash2</key>
 			<data>
-			X/16wSrR51enJnz07JOj4YEAbDjsKcQzGsxcvNkxsF8=
+			1zDN5h5P+GxiYPnJEZkZB8/a0SpVDJsJonc55/jw6pk=
 			</data>
 		</dict>
 		<key>flutter_assets/shaders/ink_sparkle.frag</key>

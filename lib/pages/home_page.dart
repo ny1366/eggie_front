@@ -1,6 +1,7 @@
 import 'package:eggie2/pages/device_off.dart';
 import 'package:eggie2/pages/mode_off.dart';
 import 'package:eggie2/pages/mode_on.dart';
+import 'package:eggie2/pages/sleep_log.dart';
 import 'package:eggie2/widgets/bottom_nav_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -214,19 +215,34 @@ class _DeviceShortcutState extends State<_DeviceShortcut> {
       // 디바이스가 꺼져있으면 device_off 페이지로
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const DeviceOff()),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const DeviceOff(),
+          transitionDuration: Duration.zero, // 애니메이션 시간 0으로 설정
+          reverseTransitionDuration: Duration.zero,
+        ),
       );
     } else if (isSleeping) {
       // 디바이스가 켜져있고 수면 중이면 mode_on 페이지로
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const ModeOnPage()),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const ModeOnPage(),
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+        ),
       );
     } else {
       // 디바이스가 켜져있고 수면 완료 상태면 mode_off 페이지로
       Navigator.push(
         context,
-        MaterialPageRoute(builder: (context) => const ModeOffPage()),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) =>
+              const ModeOffPage(),
+          transitionDuration: Duration.zero,
+          reverseTransitionDuration: Duration.zero,
+        ),
       );
     }
   }
@@ -303,21 +319,37 @@ class _buildSleepLogWidget extends StatelessWidget {
                 ],
               ),
               const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Color(0xFFD5DBFF),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text(
-                  '육아일지 바로가기',
-                  style: TextStyle(
-                    color: Color(0xFF4A57BF),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+
+              // !!!!! '오늘' 수면 일지로 설정하지 않음 !!!!! 할 필요 없지 않을까?
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    PageRouteBuilder(
+                      pageBuilder: (context, animation, secondaryAnimation) =>
+                          const TodaySleepLogPage(),
+                      transitionDuration: Duration.zero,
+                      reverseTransitionDuration: Duration.zero,
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFD5DBFF),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Text(
+                    '육아일지 바로가기',
+                    style: TextStyle(
+                      color: Color(0xFF4A57BF),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      height: 18 / 11,
+                    ),
                   ),
                 ),
               ),
@@ -362,6 +394,10 @@ class _buildHomeLocationWidget extends StatelessWidget {
             style: ElevatedButton.styleFrom(
               backgroundColor: Color(0xFF4A57BF),
               shape: const StadiumBorder(),
+              minimumSize: Size(
+                0,
+                30,
+              ), // '육아일지 바로가기'와 동일한 높이 (padding 6*2 + text height 18 = 30)
             ),
             onPressed: () {},
             child: const Text(
@@ -370,6 +406,7 @@ class _buildHomeLocationWidget extends StatelessWidget {
                 color: Colors.white,
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
+                height: 18 / 11,
               ),
             ),
           ),

@@ -13,7 +13,6 @@ import 'dart:io';
 
 import '../services/api.dart';
 
-
 class ModeOffPage extends StatefulWidget {
   final bool showStopModal;
 
@@ -92,7 +91,8 @@ class _ModeOffPageState extends State<ModeOffPage> {
       final formatter = DateFormat('yyyy-MM-dd');
       final dateStr = formatter.format(today);
       final url = Uri.parse(
-          '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$dateStr&end_dt=${dateStr}');
+        '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$dateStr&end_dt=${dateStr}',
+      );
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -449,8 +449,8 @@ class _ModeOffPageState extends State<ModeOffPage> {
           padding: const EdgeInsets.only(top: 8, bottom: 24),
           child: Center(
             child: Container(
-              width: 240,
-              height: 48,
+              width: 230,
+              height: 40,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(100),
@@ -475,8 +475,9 @@ class _ModeOffPageState extends State<ModeOffPage> {
                           '제품',
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            height: 18 / 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
@@ -489,8 +490,12 @@ class _ModeOffPageState extends State<ModeOffPage> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(
-                            builder: (context) => const UsefulFunctionPage(),
+                          PageRouteBuilder(
+                            pageBuilder:
+                                (context, animation, secondaryAnimation) =>
+                                    const UsefulFunctionPage(),
+                            transitionDuration: Duration.zero,
+                            reverseTransitionDuration: Duration.zero,
                           ),
                         );
                       },
@@ -499,8 +504,9 @@ class _ModeOffPageState extends State<ModeOffPage> {
                           '유용한 기능',
                           style: TextStyle(
                             color: Color(0xFF606C80),
-                            fontSize: 15,
-                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                            height: 18 / 12,
+                            fontWeight: FontWeight.w400,
                           ),
                         ),
                       ),
@@ -940,7 +946,12 @@ class _ModeOffPageState extends State<ModeOffPage> {
 
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const DeviceOff()),
+                PageRouteBuilder(
+                  pageBuilder: (context, animation, secondaryAnimation) =>
+                      const DeviceOff(),
+                  transitionDuration: Duration.zero,
+                  reverseTransitionDuration: Duration.zero,
+                ),
               );
             },
           ),
@@ -1013,10 +1024,12 @@ class _ModeOffPageState extends State<ModeOffPage> {
                 } else {
                   return Column(
                     children: snapshot.data!
-                        .map((log) => _buildTodayLogItem(
-                              title: log['title']!,
-                              timeRange: log['timeRange']!,
-                            ))
+                        .map(
+                          (log) => _buildTodayLogItem(
+                            title: log['title']!,
+                            timeRange: log['timeRange']!,
+                          ),
+                        )
                         .toList(),
                   );
                 }
@@ -1026,16 +1039,11 @@ class _ModeOffPageState extends State<ModeOffPage> {
       ),
     );
   }
+
   Future<List<Map<String, String>>> _fetchTodayLogs() async {
     return [
-      {
-        'title': '낮잠 1',
-        'timeRange': '오전 9:00 - 오전 10:30',
-      },
-      {
-        'title': '밤잠 1',
-        'timeRange': '오후 8:00 - 오후 9:20',
-      },
+      {'title': '낮잠 1', 'timeRange': '오전 9:00 - 오전 10:30'},
+      {'title': '밤잠 1', 'timeRange': '오후 8:00 - 오후 9:20'},
     ];
   }
 
@@ -1177,7 +1185,12 @@ class _ModeOffPageState extends State<ModeOffPage> {
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const TodaySleepLogPage()),
+          PageRouteBuilder(
+            pageBuilder: (context, animation, secondaryAnimation) =>
+                const TodaySleepLogPage(),
+            transitionDuration: Duration.zero,
+            reverseTransitionDuration: Duration.zero,
+          ),
         );
       },
       child: Padding(
@@ -1219,7 +1232,12 @@ class _ModeOffPageState extends State<ModeOffPage> {
 
             Navigator.push(
               context,
-              MaterialPageRoute(builder: (context) => const ModeOnPage()),
+              PageRouteBuilder(
+                pageBuilder: (context, animation, secondaryAnimation) =>
+                    const ModeOnPage(),
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+              ),
             );
           },
           style: ElevatedButton.styleFrom(
@@ -1309,7 +1327,12 @@ PreferredSizeWidget _buildEggieTopBar(BuildContext context) {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const DevicePage()),
+                  PageRouteBuilder(
+                    pageBuilder: (context, animation, secondaryAnimation) =>
+                        const DevicePage(),
+                    transitionDuration: Duration.zero,
+                    reverseTransitionDuration: Duration.zero,
+                  ),
                 );
               },
               color: const Color(0xFF606C80),
