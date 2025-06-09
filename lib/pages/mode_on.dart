@@ -9,8 +9,10 @@ import 'package:flutter_svg/svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:eggie2/utils/time_formatter.dart';
 import '../services/api.dart';
 
 enum SleepStatus {
@@ -26,6 +28,7 @@ class ModeOnPage extends StatefulWidget {
 }
 
 class _ModeOnPageState extends State<ModeOnPage> {
+  Future<Map<String, String>>? _autoEnvFuture;
   late bool isNap; // 낮잠 모드인지 여부
   bool isNapAuto = true; // 낮잠 모드의 자동 상태
   bool isNightAuto = true; // 밤잠 모드의 자동 상태
@@ -74,11 +77,11 @@ class _ModeOnPageState extends State<ModeOnPage> {
   @override
   void initState() {
     super.initState();
+    _autoEnvFuture = _fetchAutoEnvValues();
     _setModeBasedOnTime(); // 페이지 진입 시 시간 기준으로 탭 설정
     _loadSavedStates();
     _startSleepStatusMonitoring(); // 수면 상태 모니터링 시작
-    _loadExpectedEndTime(); // 1차 로딩
-    fetchExpectedSleepEndTime(); // 2차 로딩 (여기서 포맷팅해서 넣는 중)
+    _loadAndFormatExpectedEndTime();
   }
 
   @override
@@ -185,10 +188,11 @@ class _ModeOnPageState extends State<ModeOnPage> {
 
   // 탭 전환 - 자유롭게 이동 가능
   void _onTabChanged(bool isNapMode) {
-    setState(() {
-      isNap = isNapMode;
-    });
-  }
+  setState(() {
+    isNap = isNapMode;
+    _autoEnvFuture = _fetchAutoEnvValues(); // 탭 바뀔 때 자동 환경 새로 로드
+  });
+}
 
   // 수면 상태 실시간 모니터링 시작
   void _startSleepStatusMonitoring() {
@@ -274,20 +278,28 @@ class _ModeOnPageState extends State<ModeOnPage> {
     return expectedTime;
   }
 
-  // API에서 예상 완료 시간 받아오기
-  Future<void> _loadExpectedEndTime() async {
+  // API에서 예상 완료 시간 받아오기 및 포맷팅 (안전하게 처리)
+  Future<void> _loadAndFormatExpectedEndTime() async {
+    // 👉 주석처리: 실제 API에서 값을 받아오는 코드
+    /*
     final url = Uri.parse('${getBaseUrl()}/sleep-session-summary/1');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final List<dynamic> data = jsonDecode(response.body);
-        if (data.isNotEmpty) {
-          final latest = data.first;
-          final endAt = DateTime.parse(latest["expected_end_at"]);
+        print('✅ Raw response data: $data');
+        if (data.isNotEmpty && data.first['expected_end_at'] != null) {
+          final rawEndAt = data.first['expected_end_at'];
+          final endAt = HttpDate.parse(rawEndAt).toLocal();
+          print('타이머 종료 예정 시각: $endAt');
+          final formatted = formatKoreanTime(rawEndAt);
+
           setState(() {
             sleepExpectedEndDateTime = endAt;
-            sleepExpectedEndTime = _parseExpectedEndTime(endAt);
+            sleepExpectedEndTime = formatted;
           });
+        } else {
+          print('❗ No valid expected_end_at found in response');
         }
       } else {
         print('❗ API 응답 오류: ${response.statusCode}');
@@ -295,56 +307,35 @@ class _ModeOnPageState extends State<ModeOnPage> {
     } catch (e) {
       print('❗ API 호출 실패: $e');
     }
+    */
+
+    // 👉 하드코딩된 종료 예정 시각
+    sleepExpectedEndDateTime = DateTime(2025, 6, 10, 7, 55); // 2025-06-10 07:55:00
+    sleepExpectedEndTime = '오전 7:55'; // 한국어 포맷 시각
+
+    print('🛠 하드코딩된 종료 예정 시각 사용: $sleepExpectedEndDateTime');
   }
 
-  Future<void> fetchExpectedSleepEndTime() async {
-    try {
-      final url = Uri.parse('${getBaseUrl()}/sleep-session-summary/1');
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        print('✅ API result: $data');
-
-
-        if (data.isNotEmpty) {
-          final latest = data.first;
-          final endTime = DateTime.parse(latest['expected_end_at']);
-          final formatted = DateFormat('a hh:mm', 'ko_KR').format(endTime).replaceAll('AM', '오전').replaceAll('PM', '오후');
-          
-          print('✅ Formatted expected end time: $formatted');
-
-          setState(() {
-            sleepExpectedEndTime = formatted;
-          });
-        }
-      } else {
-        print('🔴 Failed to fetch expected sleep end time: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('🔴 Error fetching expected sleep end time: $e');
-    }
-  }
-
-  // DateTime을 HH:mm 형식으로 변환
-  String _parseExpectedEndTime(DateTime endTime) {
-    return '${endTime.hour.toString().padLeft(2, '0')}:${endTime.minute.toString().padLeft(2, '0')}';
-  }
+  // DateTime을 HH:mm 형식으로 변환 -> util/time_formatter.dart에서 가져옴
 
   // 실시간 수면 타이머 시작
   void _startSleepTimer() {
     _sleepTimer?.cancel();
 
     // 예상 완료 시간을 DateTime으로 변환
-    sleepExpectedEndDateTime = _parseExpectedEndTimeLegacy(sleepExpectedEndTime);
+    // sleepExpectedEndDateTime = _parseExpectedEndTimeLegacy(sleepExpectedEndTime);
     // 👉 TODO: DB에서 받아온 실제 완료 시간으로 교체
+    if (sleepExpectedEndDateTime == null) {
+      print('❗ 타이머 시작 실패: 종료 시각 없음');
+      return;
+    }
 
-    print('Sleep timer started:');
-    print('  - Expected end time string: $sleepExpectedEndTime');
-    print(
-      '  - Parsed expected end time: ${sleepExpectedEndDateTime.toString()}',
-    );
-    print('  - Current time: ${DateTime.now().toString()}');
+    // print('Sleep timer started:');
+    // print('  - Expected end time string: $sleepExpectedEndTime');
+    // print(
+    //   '  - Parsed expected end time: ${sleepExpectedEndDateTime.toString()}',
+    // );
+    // print('  - Current time: ${DateTime.now().toString()}');
 
     _sleepTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       _updateRemainingTime();
@@ -362,20 +353,23 @@ class _ModeOnPageState extends State<ModeOnPage> {
     final remaining = sleepExpectedEndDateTime!.difference(now);
 
     // 디버깅을 위한 상세 로그
-    print('Timer update:');
-    print('  - Now: ${now.toString()}');
-    print('  - Sleep start: ${sleepStartDateTime.toString()}');
-    print('  - Expected end: ${sleepExpectedEndDateTime.toString()}');
-    print('  - Total duration: ${totalDuration.inMinutes} minutes');
-    print('  - Remaining: ${remaining.inMinutes} minutes');
+    // print('Timer update:');
+    // print('  - Now: ${now.toString()}');
+    // print('  - Sleep start: ${sleepStartDateTime.toString()}');
+    // print('  - Expected end: ${sleepExpectedEndDateTime.toString()}');
+    // print('  - Total duration: ${totalDuration.inMinutes} minutes');
+    // print('  - Remaining: ${remaining.inMinutes} minutes');
 
     if (remaining.isNegative) {
       // 예상 시간이 지났으면 완료 처리
       print('  - AUTOMATIC TERMINATION: Expected time has passed');
+      _sleepTimer?.cancel(); // ✅ 타이머 멈추기 추가
+
       setState(() {
         remainingTimeText = '00:00:00 남음';
         sleepProgress = 1.0;
       });
+
       _updateSleepStatus(SleepStatus.finished);
       return;
     }
@@ -404,9 +398,6 @@ class _ModeOnPageState extends State<ModeOnPage> {
       sleepEndTime = formattedKoreanTime;
     });
 
-    // 👉 TODO: DB에 수면 종료 시간 저장
-    // await DatabaseService.saveSleepEndTime(now.toIso8601String());
-
     // SharedPreferences에도 임시 저장 (mode_off에서 사용하기 위해)
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('sleep_end_time', now.toIso8601String());
@@ -422,7 +413,29 @@ class _ModeOnPageState extends State<ModeOnPage> {
       '  - Hour: ${now.hour}, Minute: ${now.minute}, Second: ${now.second}',
     );
     print('Sleep session deactivated');
+
+    // 👉 TODO: DB에 수면 종료 시간 저장
+    // await updateEndTimeDuration(now);
   }
+
+  // // API 호출 함수: 종료시간과 duration 업데이트
+  // Future<void> updateEndTimeDuration(DateTime endTime) async {
+  //   final url = Uri.parse('${getBaseUrl()}/report/1/end');
+
+  //   final response = await http.put(
+  //     url,
+  //     headers: {'Content-Type': 'application/json'},
+  //     body: jsonEncode({
+  //       "end_time": endTime.toIso8601String(),
+  //     }),
+  //   );
+
+  //   if (response.statusCode == 200) {
+  //     print('종료시간 업데이트 완료');
+  //   } else {
+  //     print('에러: ${response.body}');
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -738,138 +751,146 @@ class _ModeOnPageState extends State<ModeOnPage> {
 
   Widget _buildAutoModeContent() {
     // 자동 설정값을 서버에서 불러와서 사용
-    return FutureBuilder< Map<String, String> >(
-      future: _fetchAutoEnvValues(),
+    if (_autoEnvFuture == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    return FutureBuilder<Map<String, String>>(
+      future: _autoEnvFuture!,
       builder: (context, snapshot) {
-        final envValues = snapshot.data ??
-            {
-              'temp': '--',
-              'humidity': '--',
-              'brightness': '--',
-              'sound': '--',
-            };
-        return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
-          padding: const EdgeInsets.only(left: 24, right: 24, top: 22, bottom: 6),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Column(
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Container(
-                    width: 40,
-                    height: 24,
-                    child: Text(
-                      '현재',
-                      style: TextStyle(
-                        fontSize: 16,
-                        height: 24 / 16,
-                        color: Color(0xFF606C80),
-                        fontWeight: FontWeight.w400,
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return const Center(child: Text('환경 정보 로딩 실패'));
+        } else {
+          final envValues = snapshot.data ?? {
+            'temp': '--',
+            'humidity': '--',
+            'brightness': '--',
+            'sound': '--',
+          };
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.only(left: 24, right: 24, top: 22, bottom: 6),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 24,
+                      child: Text(
+                        '현재',
+                        style: TextStyle(
+                          fontSize: 16,
+                          height: 24 / 16,
+                          color: Color(0xFF606C80),
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 24),
-                  Container(
-                    width: 40,
-                    height: 24,
-                    child: Text(
-                      '희망',
-                      style: TextStyle(
-                        fontSize: 16,
-                        height: 24 / 16,
-                        color: Color(0xFF606C80),
-                        fontWeight: FontWeight.w400,
+                    const SizedBox(width: 24),
+                    Container(
+                      width: 40,
+                      height: 24,
+                      child: Text(
+                        '희망',
+                        style: TextStyle(
+                          fontSize: 16,
+                          height: 24 / 16,
+                          color: Color(0xFF606C80),
+                          fontWeight: FontWeight.w400,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              _buildSleepingEnvItem(
-                icon: 'assets/images/temp.png',
-                label: '온도',
-                keyName: 'temp',
-                envValues: envValues,
-              ),
-              _buildDevider(),
-              _buildSleepingEnvItem(
-                icon: 'assets/images/humidity.png',
-                label: '습도',
-                keyName: 'humidity',
-                envValues: envValues,
-              ),
-              _buildDevider(),
-              _buildSleepingEnvItem(
-                icon: 'assets/images/brightness.png',
-                label: '밝기',
-                keyName: 'brightness',
-                envValues: envValues,
-              ),
-              _buildDevider(),
-              _buildSleepingEnvItem(
-                icon: 'assets/images/sound.png',
-                label: '백색 소음',
-                keyName: 'sound',
-                envValues: envValues,
-              ),
-            ],
-          ),
-        );
+                  ],
+                ),
+                _buildSleepingEnvItem(
+                  icon: 'assets/images/temp.png',
+                  label: '온도',
+                  keyName: 'temp',
+                  envValues: envValues,
+                ),
+                _buildDevider(),
+                _buildSleepingEnvItem(
+                  icon: 'assets/images/humidity.png',
+                  label: '습도',
+                  keyName: 'humidity',
+                  envValues: envValues,
+                ),
+                _buildDevider(),
+                _buildSleepingEnvItem(
+                  icon: 'assets/images/brightness.png',
+                  label: '밝기',
+                  keyName: 'brightness',
+                  envValues: envValues,
+                ),
+                _buildDevider(),
+                _buildSleepingEnvItem(
+                  icon: 'assets/images/sound.png',
+                  label: '백색 소음',
+                  keyName: 'sound',
+                  envValues: envValues,
+                ),
+              ],
+            ),
+          );
+        }
       },
     );
   }
 
   // 자동 환경값을 서버에서 불러오는 함수 (최신 낮잠/밤잠 환경값, 낮잠 우선)
   Future<Map<String, String>> _fetchAutoEnvValues() async {
-    try {
-      final url = Uri.parse('${getBaseUrl()}/detailed-history/1');
-      final response = await http.get(url);
+  try {
+    final url = Uri.parse('${getBaseUrl()}/detailed-history/1');
+    final response = await http.get(url);
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      final List<dynamic> data = jsonDecode(response.body);
 
-        // 최신 밤잠과 낮잠 값을 추출
-        Map<String, dynamic>? latestDay;
-        Map<String, dynamic>? latestNight;
+      // 최신 밤잠과 낮잠 값을 추출
+      Map<String, dynamic>? latestDay;
+      Map<String, dynamic>? latestNight;
 
-        for (var entry in data.reversed) {
-          if (latestDay == null && entry['sleep_mode'] == 'day') {
-            latestDay = entry;
-          }
-          if (latestNight == null && entry['sleep_mode'] == 'night') {
-            latestNight = entry;
-          }
-          if (latestDay != null && latestNight != null) break;
+      for (var entry in data.reversed) {
+        if (latestDay == null && entry['sleep_mode'] == 'day') {
+          latestDay = entry;
         }
-
-        // 선택: 낮잠 값 우선 표시
-        final latest = latestDay ?? latestNight;
-        if (latest == null) throw Exception("No env data found");
-
-        // Round all values and append proper units
-        return {
-          'temp': '${latest['temperature'].round()}°C',
-          'humidity': '${latest['humidity'].round()}%',
-          'brightness': '${latest['brightness'].round()}%',
-          'sound': '${latest['white_noise_level'].round()}dB',
-        };
-      } else {
-        throw Exception('Failed to load env data');
+        if (latestNight == null && entry['sleep_mode'] == 'night') {
+          latestNight = entry;
+        }
+        if (latestDay != null && latestNight != null) break;
       }
-    } catch (e) {
-      print("Error fetching env values: $e");
+
+      // 현재 모드에 따라 적절한 값을 선택
+      final latest = isNap ? latestDay : latestNight;
+      if (latest == null) throw Exception("No env data found for current mode");
+
+      // Round all values and append proper units
       return {
-        'temp': '--',
-        'humidity': '--',
-        'brightness': '--',
-        'sound': '--',
+        'temp': '${latest['temperature'].round()}°C',
+        'humidity': '${latest['humidity'].round()}%',
+        'brightness': '${latest['brightness'].round()}%',
+        'sound': '${latest['white_noise_level'].round()}dB',
       };
+    } else {
+      throw Exception('Failed to load env data');
     }
+  } catch (e) {
+    print("Error fetching env values: $e");
+    return {
+      'temp': '--',
+      'humidity': '--',
+      'brightness': '--',
+      'sound': '--',
+    };
   }
+}
 
   Widget _buildEnvInfoItem({
     required String icon,

@@ -31,6 +31,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
   bool _hasFetchedAutoEnv = false;
 
   Map<String, String> autoEnvValues = {};
+  Future<void>? _autoEnvFuture;
 
   // 수면 시간 변수들
   String? sleepStartTime; // 수면 시작 시간
@@ -64,7 +65,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
   void initState() {
     super.initState();
     _setModeBasedOnTime(); // 페이지 진입 시 시간 기준으로 탭 설정
-    _loadSavedStates().then((_) => _fetchAutoEnvValues());
+    _autoEnvFuture = _loadSavedStates().then((_) => _fetchAutoEnvValues());
     _fetchNextSleepModeLabel();
 
     // 페이지 로드 후 바텀 시트 표시
@@ -165,15 +166,16 @@ class _ModeOffPageState extends State<ModeOffPage> {
     }
   }
 
-  // 현재 시간을 기준으로 낮잠/밤잠 모드 설정
+  // 현재 시간을 기준 오전 6시 이후 + 오후 8시 이전이면 낮잠으로 낮잠/밤잠 모드 설정
   void _setModeBasedOnTime() {
-    final now = TimeOfDay.now();
-    final eveningStartHour = 18; // 오후 6시
+  final now = TimeOfDay.now();
+  final morningStartHour = 6;
+  final eveningStartHour = 20;
 
-    setState(() {
-      isNap = now.hour < eveningStartHour;
-    });
-  }
+  setState(() {
+    isNap = now.hour >= morningStartHour && now.hour < eveningStartHour;
+  });
+}
 
   // SharedPreferences에서 자동/수동 설정 불러오기
   Future<void> _loadSavedStates() async {
@@ -191,25 +193,45 @@ class _ModeOffPageState extends State<ModeOffPage> {
     await prefs.setBool('isNightAuto', isNightAuto);
   }
 
-  // 모드 시작 시간을 SharedPreferences에 저장하기
+  // 모드 시작 시간을 SharedPreferences + DB 에 저장하기
   Future<void> _saveModeStartTime() async {
     final prefs = await SharedPreferences.getInstance();
     final now = DateTime.now();
     final modeType = isNap ? 'day' : 'night';
 
-    // 현재 시간을 ISO 8601 형식으로 저장
+    // SharedPreferences 저장
     await prefs.setString('${modeType}_start_time', now.toIso8601String());
-
-    // 추가적으로 모드 타입도 저장
     await prefs.setString('current_mode_type', modeType);
     await prefs.setBool('current_mode_auto', isAuto);
-
-    // 수면 세션 활성화
     await prefs.setBool('sleep_session_active', true);
 
     print('Mode start time saved: $modeType at ${now.toIso8601String()}');
     print('Sleep session activated');
+
+    // ✅ DB에 저장
+    // await sendStartTime(now);
   }
+
+  // 수면 시작시간 insert하는 API 호출 함수
+  // Future<void> sendStartTime(DateTime startTime) async {
+  //   final baseUrl = getBaseUrl();
+  //   final url = Uri.parse('$baseUrl/report/1');
+
+  //   final response = await http.post(
+  //     url,
+  //     headers: {'Content-Type': 'application/json'},
+  //     body: jsonEncode({
+  //       "baby_id": 1,
+  //       "start_time": startTime.toIso8601String(),
+  //     }),
+  //   );
+
+  //   if (response.statusCode == 200) {
+  //     print('등록 성공: ${response.body}');
+  //   } else {
+  //     print('등록 실패: ${response.body}');
+  //   }
+  // }
 
   // 저장된 수면 시간들을 불러오기
   Future<void> _loadSleepTimes() async {
@@ -358,10 +380,11 @@ class _ModeOffPageState extends State<ModeOffPage> {
 
   @override
   Widget build(BuildContext context) {
-    // 현재 시간이 오후 6시 이전이면 낮잠, 이후면 밤잠이 적절
+    // 현재 시간이 오전 6시 이후 + 오후 8시 이전이면 낮잠, 이후면 밤잠이 적절
     final now = TimeOfDay.now();
-    final eveningStartHour = 18;
-    final isNapTime = now.hour < eveningStartHour;
+    final morningStartHour = 6;
+    final eveningStartHour = 20;
+    final isNapTime = now.hour >= morningStartHour && now.hour < eveningStartHour;
 
     // 현재 시간대와 선택된 탭이 불일치하는지 확인
     final isWrongTimeOfDay = isNapTime != isNap;
@@ -516,75 +539,84 @@ class _ModeOffPageState extends State<ModeOffPage> {
   }
 
   Widget _buildAutoModeContent() {
-    final envValues = autoEnvValues.isNotEmpty
-        ? autoEnvValues
-        : {
-            'temp': '20°C',
-            'humidity': '30%',
-            'brightness': '10%',
-            'sound': '29dB',
-          };
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 환경 정보 카드
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildAutoEnvInfoItem(
-                icon: 'assets/images/temp.png',
-                label: '온도',
-                value: envValues['temp']!,
-              ),
-              _buildAutoEnvInfoItem(
-                icon: 'assets/images/humidity.png',
-                label: '습도',
-                value: envValues['humidity']!,
-              ),
-              _buildAutoEnvInfoItem(
-                icon: 'assets/images/brightness.png',
-                label: '밝기',
-                value: envValues['brightness']!,
-              ),
-            ],
-          ),
-
-          const SizedBox(height: 8),
-
-          // 백색 소음 카드
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
+    return FutureBuilder<void>(
+      future: _autoEnvFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasError) {
+          return const Center(child: Text('환경 정보 로딩 실패'));
+        } else {
+          final envValues = autoEnvValues.isNotEmpty
+              ? autoEnvValues
+              : {
+                  'temp': '20°C',
+                  'humidity': '30%',
+                  'brightness': '10%',
+                  'sound': '29dB',
+                };
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Image.asset('assets/images/sound.png', width: 60, height: 60),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                // 환경 정보 카드
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text(
-                      '백색 소음',
-                      style: TextStyle(fontSize: 16, color: Color(0xFF606C80)),
+                    _buildAutoEnvInfoItem(
+                      icon: 'assets/images/temp.png',
+                      label: '온도',
+                      value: envValues['temp']!,
                     ),
-                    Text(
-                      envValues['sound']!,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w500,
-                      ),
+                    _buildAutoEnvInfoItem(
+                      icon: 'assets/images/humidity.png',
+                      label: '습도',
+                      value: envValues['humidity']!,
+                    ),
+                    _buildAutoEnvInfoItem(
+                      icon: 'assets/images/brightness.png',
+                      label: '밝기',
+                      value: envValues['brightness']!,
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                // 백색 소음 카드
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Row(
+                    children: [
+                      Image.asset('assets/images/sound.png', width: 60, height: 60),
+                      const SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            '백색 소음',
+                            style: TextStyle(fontSize: 16, color: Color(0xFF606C80)),
+                          ),
+                          Text(
+                            envValues['sound']!,
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-          ),
-        ],
-      ),
+          );
+        }
+      },
     );
   }
 

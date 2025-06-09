@@ -24,24 +24,6 @@ Future<List<Map<String, dynamic>>> fetchLatestSleepLogs() async {
   }
 }
 
-Future<List<Map<String, dynamic>>> fetchTodaySleepLogs() async {
-  // ✅ 현재는 2024-09-16 날짜로 고정하여 값 확인 중. 실제 사용 시 아래 줄 주석 처리 필요
-  // final today = DateTime.now();
-  final today = DateTime(2024, 9, 16); // ✅ 테스트용으로 2024-09-16 날짜 고정 (나중엔 주석처리 필요)
-  final formatter = DateFormat('yyyy-MM-dd');
-  final startDt = formatter.format(today);
-  final endDt = formatter.format(today.add(const Duration(days: 1)));
-
-  final response = await http.get(Uri.parse(
-    '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt',
-  ));
-
-  if (response.statusCode == 200) {
-    return List<Map<String, dynamic>>.from(jsonDecode(response.body));
-  } else {
-    throw Exception('오늘 수면 로그 로딩 실패');
-  }
-}
 
 class DeviceOff extends StatefulWidget {
   const DeviceOff({super.key});
@@ -53,6 +35,54 @@ class DeviceOff extends StatefulWidget {
 class _DeviceOffState extends State<DeviceOff> {
   bool _isTodayLogExpanded = false;
   bool _isEstimatedLogExpanded = false;
+  Future<List<Map<String, dynamic>>>? _todaySleepLogsFuture;
+  Future<List<Map<String, dynamic>>>? _latestSleepLogsFuture;
+  Future<List<Map<String, dynamic>>>? _estimatedSleepScheduleFuture;
+  late DateTime _todayDate;
+
+  @override
+  void initState() {
+    super.initState();
+    // ✅ 테스트용 날짜 고정 시 아래 사용:
+    _todayDate = DateTime(2024, 9, 16);
+    
+    // ✅ 운영 시 오늘 날짜 사용:
+    // _todayDate = DateTime.now();
+    _todaySleepLogsFuture = fetchTodaySleepLogs();
+    _latestSleepLogsFuture = fetchLatestSleepLogs();
+    _estimatedSleepScheduleFuture = fetchTodayEstimatedSleepSchedule();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchTodaySleepLogs() async {
+    final formatter = DateFormat('yyyy-MM-dd');
+    final startDt = formatter.format(_todayDate);
+    final endDt = formatter.format(_todayDate.add(const Duration(days: 1)));
+
+    final response = await http.get(Uri.parse(
+      '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt',
+    ));
+
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    } else {
+      throw Exception('오늘 수면 로그 로딩 실패');
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchTodayEstimatedSleepSchedule() async {
+    final formatter = DateFormat('yyyy-MM-dd');
+    final dateStr = formatter.format(_todayDate);
+
+    final response = await http.get(Uri.parse(
+      '${getBaseUrl()}/sleep-schedule?device_id=1&date=$dateStr',
+    ));
+
+    if (response.statusCode == 200) {
+      return List<Map<String, dynamic>>.from(jsonDecode(response.body));
+    } else {
+      throw Exception('오늘 예상 수면 스케줄 로딩 실패');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -214,21 +244,50 @@ class _DeviceOffState extends State<DeviceOff> {
             ),
           ),
 
-          if (_isEstimatedLogExpanded) ...[
-            // 낮잠 3
-            _buildTodayLogItem(
-              title: '낮잠 3',
-              timeRange: '오전 9:30  -  오전 10:40',
+          if (_isEstimatedLogExpanded)
+            FutureBuilder<List<Map<String, dynamic>>>(
+              future: _estimatedSleepScheduleFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                } else if (snapshot.hasError) {
+                  return const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Text('에러 발생'),
+                  );
+                } else {
+                  final data = snapshot.data ?? [];
+                  final grouped = data.map((log) {
+                    final title = log['sleep_mode'] ?? '기타';
+                    final rawStart = log['expected_start_at'];
+                    final rawEnd = log['expected_end_at'];
+                    final start = formatKoreanTime(rawStart);
+                    final end = formatKoreanTime(rawEnd);
+                    return _buildTodayLogItem(
+                      title: title,
+                      timeRange: '$start  -  $end',
+                    );
+                  }).toList();
+
+                  if (grouped.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text('예상 수면 스케줄 없음'),
+                    );
+                  }
+
+                  return Column(
+                    children: List.generate(grouped.length * 2 - 1, (i) {
+                      if (i.isEven) return grouped[i ~/ 2];
+                      return const _buildDevider();
+                    }),
+                  );
+                }
+              },
             ),
-            _buildDevider(),
-
-            // 밤잠 1
-            _buildTodayLogItem(title: '밤잠 1', timeRange: '오후 1:32  -  오후 3:00'),
-            _buildDevider(),
-
-            // 밤잠 2
-            _buildTodayLogItem(title: '밤잠 2', timeRange: '오후 1:32  -  오후 3:00'),
-          ],
         ],
       ),
     );
@@ -280,7 +339,7 @@ class _DeviceOffState extends State<DeviceOff> {
 
           if (_isTodayLogExpanded)
             FutureBuilder<List<Map<String, dynamic>>>(
-              future: fetchTodaySleepLogs(),
+              future: _todaySleepLogsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Padding(
@@ -296,8 +355,10 @@ class _DeviceOffState extends State<DeviceOff> {
                   final data = snapshot.data ?? [];
                   final grouped = data.map((log) {
                     final title = log['sleep_mode'] ?? '기타';
-                    final rawStart = log['recorded_at'];
+                    final rawStart = log['start_time'];
                     final rawEnd = log['end_time'];
+                    // DEBUG print statement
+                    print('DEBUG - Today Sleep Log Item: sleep_mode=${log['sleep_mode']}, start_time=$rawStart, end_time=$rawEnd');
                     final start = formatKoreanTime(rawStart);
                     final end = formatKoreanTime(rawEnd);
                     return _buildTodayLogItem(
@@ -403,6 +464,8 @@ class _buildDeviceLogWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get the state from the parent (DeviceOff) to access _latestSleepLogsFuture
+    final state = context.findAncestorStateOfType<_DeviceOffState>();
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -418,7 +481,7 @@ class _buildDeviceLogWidget extends StatelessWidget {
           _buildDevider(),
           // 낮잠/밤잠 이력 (API 연동)
           FutureBuilder<List<Map<String, dynamic>>>(
-            future: fetchLatestSleepLogs(),
+            future: state?._latestSleepLogsFuture,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const CircularProgressIndicator();

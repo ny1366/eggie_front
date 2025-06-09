@@ -24,34 +24,22 @@ class _DeviceLogDetailPageState extends State<DeviceLogDetailPage> {
         a.minute == b.minute;
   }
 
-  Map<String, dynamic>? detail;
+  Future<List<dynamic>>? _detailedHistoryFuture;
 
   @override
   void initState() {
     super.initState();
-    fetchDetail();
+    _detailedHistoryFuture = fetchDetailedHistory();
   }
 
-  /// Fetches detailed log data from the API and finds the entry matching the recordedAt minute.
-  Future<void> fetchDetail() async {
+  Future<List<dynamic>> fetchDetailedHistory() async {
     final url = Uri.parse('${getBaseUrl()}/detailed-history/1');
     final response = await http.get(url);
 
     if (response.statusCode == 200) {
-      List<dynamic> data = jsonDecode(response.body);
-
-      for (var item in data) {
-        // Ensure recorded_at is in RFC 1123 format, e.g., "Mon, 27 May 2024 00:00:00 GMT"
-        // Parse it using HttpDate.parse
-        final parsed = HttpDate.parse(item['recorded_at']).toLocal();
-
-        if (isSameMinute(parsed, widget.recordedAt)) {
-          setState(() {
-            detail = item;
-          });
-          break;
-        }
-      }
+      return jsonDecode(response.body);
+    } else {
+      throw Exception('Failed to load detailed history');
     }
   }
 
@@ -62,9 +50,24 @@ class _DeviceLogDetailPageState extends State<DeviceLogDetailPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFEDF2F4),
       appBar: _buildTopBar(context, title: formattedTitle),
-      body: detail == null
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
+      body: FutureBuilder<List<dynamic>>(
+        future: _detailedHistoryFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(child: Text('에러: ${snapshot.error}'));
+          } else {
+            final data = snapshot.data!;
+            final matchedItem = data.firstWhere((item) {
+              final parsed = HttpDate.parse(item['recorded_at']).toLocal();
+              return isSameMinute(parsed, widget.recordedAt);
+            }, orElse: () => null);
+
+            if (matchedItem == null) {
+              return const Center(child: Text('기록 없음'));
+            }
+            return SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -75,17 +78,20 @@ class _DeviceLogDetailPageState extends State<DeviceLogDetailPage> {
                   const SizedBox(height: 24),
                   _buildWidgetTitle(text: '환경 정보'),
                   const SizedBox(height: 8),
-                  _buildEnvInfoWidget(detail!),
+                  _buildEnvInfoWidget(matchedItem),
                   const SizedBox(height: 24),
                   _buildWidgetTitle(text: '코스 옵션'),
                   const SizedBox(height: 2),
                   _buildWidgetTitle(text: '자동 코스의 경우, 평균 설정값으로 노출됩니다.'),
                   const SizedBox(height: 8),
-                  _buildCourseOptionWidget(detail!),
+                  _buildCourseOptionWidget(matchedItem),
                   const SizedBox(height: 120),
                 ],
               ),
-            ),
+            );
+          }
+        },
+      ),
     );
   }
 
