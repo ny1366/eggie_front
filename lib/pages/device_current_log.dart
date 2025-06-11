@@ -106,7 +106,7 @@ class CurrentLogPage extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         try {
-          final parsedDate = HttpDate.parse(rawDate).toLocal();
+          final parsedDate = DateTime.parse(rawDate).toLocal();
           Navigator.push(
             context,
             MaterialPageRoute(
@@ -125,7 +125,7 @@ class CurrentLogPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  date,
+                  formatKoreanDateTimeFromISO(rawDate),
                   style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w400,

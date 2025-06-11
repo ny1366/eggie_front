@@ -1,3 +1,7 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
+import '../services/api.dart';
 import 'package:flutter/material.dart';
 import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter_svg/svg.dart';
@@ -16,6 +20,11 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
 
   // 선택된 수면 바 정보를 저장하는 변수
   Map<String, dynamic>? selectedSleepData;
+
+  // 오늘의 수면 데이터 (API)
+  Map<String, dynamic>? todaySleepData;
+  bool isLoading = false;
+  String? errorMessage;
 
   // 👉🏻👉🏻👉🏻 공통 수면 데이터 - TODO: 실제 DB 데이터로 교체 예정
   final List<Map<String, String>> _allActualSleepData = [
@@ -64,27 +73,24 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
     '22:30', '23:15', '02:05', '02:15', // 밤잠 시간대
   ];
 
-  // 👉🏻👉🏻👉🏻 API에서 받아올 수면 요약 데이터 - TODO: 실제 API 연동 시 교체 예정
-  String _totalSleepTime = '8시간 12분';
-  String _napSleepTime = '3시간 24분';
-  int _napSleepCount = 3;
-  String _nightSleepTime = '4시간 48분';
-  int _nightSleepCount = 2;
+  // 👉🏻👉🏻👉🏻 API에서 받아올 수면 요약 데이터 변수 선언
+  String _totalSleepTime = '0시간 00분';
+  String _napSleepTime = '0시간 0분';
+  int _napSleepCount = 0;
+  String _nightSleepTime = '0시간 0분';
+  int _nightSleepCount = 0;
 
-  // 수면 시간 계산 헬퍼 메서드 (타임라인 표시용)
-  int _calculateSleepMinutes(String startTime, String endTime) {
-    var start = _parseTime(startTime);
-    var end = _parseTime(endTime);
+  // 선택된 날짜 (API startDt) - 테스트용 하드코딩 날짜 사용 중
+  // TODO: 오늘 날짜 자동 사용 시 아래 코드 참고
+  // final today = DateTime.now();
+  // _selectedStartDt = '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+  String _selectedStartDt = '2024-09-16';
 
-    int startMinutes = start['hour']! * 60 + start['minute']!;
-    int endMinutes = end['hour']! * 60 + end['minute']!;
-
-    // 다음날로 넘어가는 경우 처리 (밤잠)
-    if (endMinutes < startMinutes) {
-      endMinutes += 24 * 60;
-    }
-
-    return endMinutes - startMinutes;
+  // 날짜 문자열을 한국어 형식 (YYYY.MM.DD 요일요일)으로 변환
+  String _formatKoreanDate(String dateStr) {
+    DateTime date = DateTime.parse(dateStr);
+    String weekdayKorean = ['월', '화', '수', '목', '금', '토', '일'][date.weekday - 1];
+    return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')} $weekdayKorean요일';
   }
 
   // 수면 시간 문자열을 분 단위로 변환하는 헬퍼 메서드
@@ -108,6 +114,31 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
 
     return totalMinutes;
   }
+  
+  // 시간 문자열을 시와 분으로 파싱하는 헬퍼 메서드
+  String _formatTime(String isoDateTimeStr) {
+    DateTime dt = DateTime.parse(isoDateTimeStr);
+    return DateFormat('HH:mm').format(dt);
+  }
+
+  // null 허용 버전 추가
+  String _formatTimeNullable(String? isoDateTimeStr) {
+    if (isoDateTimeStr == null) {
+      return '';
+    }
+    DateTime dt = DateTime.parse(isoDateTimeStr);
+    return DateFormat('HH:mm').format(dt);
+  }
+
+  // 수면 시작 시각에 따라 낮잠/밤잠 라벨을 계산하는 헬퍼 메서드
+  String _computeSleepModeLabel(DateTime startTime) {
+    int hour = startTime.hour;
+    if (hour >= 6 && hour < 20) {
+      return '낮잠';
+    } else {
+      return '밤잠';
+    }
+  }
 
   // 낮잠 시간에 따른 조건부 메시지 생성
   String _getNapFeedbackMessage() {
@@ -124,11 +155,10 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
     }
   }
 
+
   @override
   void initState() {
     super.initState();
-    // '낮잠 1'을 기본 선택 상태로 설정
-    // 👉🏻👉🏻👉🏻 TODO: 실제 DB 데이터로 교체 필요
     selectedSleepData = {
       'sleepTitle': '낮잠 1',
       'actualStartTime': '06:28',
@@ -137,6 +167,72 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
       'expectedEndTime': '08:20',
       'wakeCounts': '1',
     };
+    _loadTodaySleepDetailData();
+  }
+
+  // (삭제됨) _loadTodaySleepData
+  
+  // today-sleep-detail-data API 호출
+  Future<void> _loadTodaySleepDetailData() async {
+    try {
+      final babyId = 1;
+      final data = await SleepApiService.getTodaySleepDetailData(babyId, startDt: _selectedStartDt);
+
+      // data is Map<String, dynamic>
+      final sleepRecords = (data['sleepRecords'] as List<dynamic>).cast<Map<String, dynamic>>();
+      List<Map<String, String>> actualSleepData = [];
+      List<Map<String, String>> expectedSleepData = [];
+      List<String> wakeTimesData = [];
+
+      for (var item in sleepRecords) {
+        // item is Map<String, dynamic>
+        actualSleepData.add({
+          'startTime': _formatTime(item['startTime'] as String? ?? ''),
+          'endTime': _formatTime(item['endTime'] as String? ?? ''),
+          'sleepTitle': '${((item['sleepMode'] as String? ?? '') == 'night' ? '밤잠' : '낮잠')} ${(item['sleepModeSeq'] as int? ?? 0).toString()}',
+          'sleepMode': item['sleepMode'] as String? ?? '',
+          'sleepModeSeq': (item['sleepModeSeq'] as int? ?? 0).toString(),
+          'actualStartTime': _formatTime(item['startTime'] as String? ?? ''),
+          'wakeCounts': (item['wakeCounts'] as int? ?? 0).toString(),
+        });
+
+        if ((item['expectedStartAt'] as String?) != null && (item['expectedEndAt'] as String?) != null) {
+          expectedSleepData.add({
+            'startTime': _formatTimeNullable(item['expectedStartAt'] as String?),
+            'endTime': _formatTimeNullable(item['expectedEndAt'] as String?),
+            'sleepTitle': '${((item['sleepMode'] as String? ?? '') == 'night' ? '밤잠' : '낮잠')} ${(item['sleepModeSeq'] as int? ?? 0).toString()}',
+            'sleepMode': item['sleepMode'] as String? ?? '',
+            'sleepModeSeq': (item['sleepModeSeq'] as int? ?? 0).toString(),
+            'actualStartTime': _formatTime(item['startTime'] as String? ?? ''),
+          });
+        }
+
+        int wakeCount = item['wakeCounts'] as int? ?? 0;
+        if (wakeCount > 0) {
+          wakeTimesData.add(_formatTime(item['endTime'] as String? ?? ''));
+        }
+      }
+
+      setState(() {
+        _allActualSleepData.clear();
+        _allActualSleepData.addAll(actualSleepData);
+
+        _allExpectedSleepData.clear();
+        _allExpectedSleepData.addAll(expectedSleepData);
+
+        _allWakeTimesData.clear();
+        _allWakeTimesData.addAll(wakeTimesData);
+
+        // Update summary data from API response
+        _totalSleepTime = data['totalSleepDuration'] ?? '0시간 0분';
+        _napSleepTime = data['napDuration'] ?? '0시간 0분';
+        _napSleepCount = data['napCount'] ?? 0;
+        _nightSleepTime = data['nightDuration'] ?? '0시간 0분';
+        _nightSleepCount = data['nightCount'] ?? 0;
+      });
+    } catch (e) {
+      print('Error loading today sleep detail data: $e');
+    }
   }
 
   @override
@@ -145,8 +241,10 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
       backgroundColor: const Color(0xFFEDF2F4),
       appBar: _buildTopBar(
         context,
-        title: '2025.6.4 수요일',
-      ), // 👉🏻👉🏻👉🏻 TODO: 실제 DB 데이터로 교체 필요
+        title: _formatKoreanDate(_selectedStartDt),
+      ), // 👉🏻👉🏻👉🏻 지정한 날짜 or 오늘 날짜로 교체 완료
+        
+
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -299,7 +397,13 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
     );
   }
 
-  Container _buildSleepSummaryWidget() {
+  Widget _buildSleepSummaryWidget() {
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (errorMessage != null) {
+      return Center(child: Text(errorMessage!));
+    }
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
@@ -641,12 +745,13 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
       String expectedStartTime = '';
       String expectedEndTime = '';
       for (var expectedData in _allExpectedSleepData) {
-        if (expectedData['sleepTitle'] == sleepTitle) {
-          expectedStartTime = expectedData['startTime']!;
-          expectedEndTime = expectedData['endTime']!;
-          break;
-        }
+      if (expectedData['sleepTitle'] == sleepTitle &&
+          expectedData['actualStartTime'] == data['startTime']) {
+        expectedStartTime = expectedData['startTime']!;
+        expectedEndTime = expectedData['endTime']!;
+        break;
       }
+    }
 
       return _buildClickableSleepBar(
         left: left,
@@ -710,7 +815,8 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
   }) {
     bool isSelected =
         selectedSleepData != null &&
-        selectedSleepData!['sleepTitle'] == sleepData['sleepTitle'];
+        selectedSleepData!['sleepTitle'] == sleepData['sleepTitle'] &&
+        selectedSleepData!['actualStartTime'] == sleepData['actualStartTime'];
 
     return Positioned(
       left: left,
@@ -747,7 +853,7 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
               left: 14,
               top: height / 2 - 8, // 아이콘을 수면 바 중앙에 배치
               child: SvgPicture.asset(
-                sleepData['sleepTitle']!.contains('밤잠')
+                sleepData['sleepMode'] == 'night'
                     ? 'assets/icons/bar_clicked_night.svg'
                     : 'assets/icons/bar_clicked_day.svg',
                 width: 16,
@@ -986,6 +1092,7 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
     var splitData = _splitSleepRecords(_allActualSleepData);
     List<Map<String, dynamic>> actualNightData = splitData['night']!;
 
+    
     return actualNightData.asMap().entries.map((entry) {
       int index = entry.key;
       Map<String, dynamic> data = entry.value;
@@ -1008,12 +1115,13 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
       String expectedStartTime = '';
       String expectedEndTime = '';
       for (var expectedData in _allExpectedSleepData) {
-        if (expectedData['sleepTitle'] == sleepTitle) {
-          expectedStartTime = expectedData['startTime']!;
-          expectedEndTime = expectedData['endTime']!;
-          break;
-        }
+      if (expectedData['sleepTitle'] == sleepTitle &&
+          expectedData['actualStartTime'] == data['startTime']) {
+        expectedStartTime = expectedData['startTime']!;
+        expectedEndTime = expectedData['endTime']!;
+        break;
       }
+    }
 
       return _buildClickableSleepBar(
         left: left,
@@ -1064,11 +1172,18 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
     return totalMinutes * (80.0 / 60.0);
   }
 
-  // 시간 문자열을 시간과 분으로 파싱하는 헬퍼 함수
+  // 시간 문자열을 시간과 분으로 파싱하는 헬퍼 함수 (안전하게 처리)
   Map<String, int> _parseTime(String timeString) {
-    // "HH:mm" 형식의 시간 문자열을 파싱
+    if (timeString.isEmpty) {
+      // 기본값: 00:00 으로 처리
+      return {'hour': 0, 'minute': 0};
+    }
+
     List<String> parts = timeString.split(':');
-    return {'hour': int.parse(parts[0]), 'minute': int.parse(parts[1])};
+    return {
+      'hour': int.parse(parts[0]),
+      'minute': int.parse(parts[1]),
+    };
   }
 
   // 타임라인 경계를 넘나드는 수면 기록을 분할하는 헬퍼 함수
@@ -1089,6 +1204,7 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
       // 밤잠 시간대: 20시~다음날 6시 (오후 8시~오전 6시)
 
       bool startInNap = startHour >= 6 && startHour < 20;
+      String sleepModeLabelForTitle = startInNap ? '낮잠' : '밤잠';
       bool endInNap = endHour >= 6 && endHour < 20;
 
       // 다음날로 넘어가는 경우 처리
@@ -1104,7 +1220,10 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
               'startTime': record['startTime']!,
               'endTime': record['endTime']!,
               'originalStartTime': record['startTime']!,
-              'sleepTitle': record['sleepTitle'] ?? '',
+              'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
+              'sleepMode': record['sleepMode']!,
+              'sleepModeSeq': record['sleepModeSeq']!,
+              'actualStartTime': record['startTime']!,
               'wakeCounts': record['wakeCounts'] ?? '',
               'isStartTruncated': false,
               'isEndTruncated': false,
@@ -1115,8 +1234,10 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
               'startTime': record['startTime']!,
               'endTime': '06:00',
               'originalStartTime': record['startTime']!,
-              'sleepTitle': record['sleepTitle'] ?? '',
-              'wakeCounts': record['wakeCounts'] ?? '',
+              'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
+              'sleepMode': record['sleepMode']!,
+              'sleepModeSeq': record['sleepModeSeq']!,
+              'actualStartTime': record['startTime']!,
               'isStartTruncated': false,
               'isEndTruncated': true,
             });
@@ -1124,7 +1245,10 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
               'startTime': '06:00',
               'endTime': record['endTime']!,
               'originalStartTime': record['startTime']!,
-              'sleepTitle': record['sleepTitle'] ?? '',
+              'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
+              'sleepMode': record['sleepMode']!,
+              'sleepModeSeq': record['sleepModeSeq']!,
+              'actualStartTime': record['startTime']!,
               'wakeCounts': record['wakeCounts'] ?? '',
               'isStartTruncated': true,
               'isEndTruncated': false,
@@ -1139,7 +1263,10 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
             'startTime': record['startTime']!,
             'endTime': record['endTime']!,
             'originalStartTime': record['startTime']!,
-            'sleepTitle': record['sleepTitle'] ?? '',
+            'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
+            'sleepMode': record['sleepMode']!,
+            'sleepModeSeq': record['sleepModeSeq']!,
+            'actualStartTime': record['startTime']!,
             'wakeCounts': record['wakeCounts'] ?? '',
             'isStartTruncated': false,
             'isEndTruncated': false,
@@ -1150,7 +1277,10 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
             'startTime': record['startTime']!,
             'endTime': record['endTime']!,
             'originalStartTime': record['startTime']!,
-            'sleepTitle': record['sleepTitle'] ?? '',
+            'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
+            'sleepMode': record['sleepMode']!,
+            'sleepModeSeq': record['sleepModeSeq']!,
+            'actualStartTime': record['startTime']!,
             'wakeCounts': record['wakeCounts'] ?? '',
             'isStartTruncated': false,
             'isEndTruncated': false,
@@ -1161,8 +1291,10 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
             'startTime': record['startTime']!,
             'endTime': '20:00',
             'originalStartTime': record['startTime']!,
-            'sleepTitle': record['sleepTitle'] ?? '',
-            'wakeCounts': record['wakeCounts'] ?? '',
+            'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
+            'sleepMode': record['sleepMode']!,
+            'sleepModeSeq': record['sleepModeSeq']!,
+            'actualStartTime': record['startTime']!,
             'isStartTruncated': false,
             'isEndTruncated': true,
           });
@@ -1170,7 +1302,10 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
             'startTime': '20:00',
             'endTime': record['endTime']!,
             'originalStartTime': record['startTime']!,
-            'sleepTitle': record['sleepTitle'] ?? '',
+            'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
+            'sleepMode': record['sleepMode']!,
+            'sleepModeSeq': record['sleepModeSeq']!,
+            'actualStartTime': record['startTime']!,
             'wakeCounts': record['wakeCounts'] ?? '',
             'isStartTruncated': true,
             'isEndTruncated': false,
@@ -1181,7 +1316,10 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
             'startTime': record['startTime']!,
             'endTime': '06:00',
             'originalStartTime': record['startTime']!,
-            'sleepTitle': record['sleepTitle'] ?? '',
+            'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
+            'sleepMode': record['sleepMode']!,
+            'sleepModeSeq': record['sleepModeSeq']!,
+            'actualStartTime': record['startTime']!,
             'wakeCounts': record['wakeCounts'] ?? '',
             'isStartTruncated': false,
             'isEndTruncated': true,
@@ -1190,13 +1328,26 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
             'startTime': '06:00',
             'endTime': record['endTime']!,
             'originalStartTime': record['startTime']!,
-            'sleepTitle': record['sleepTitle'] ?? '',
+            'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
+            'sleepMode': record['sleepMode']!,
+            'sleepModeSeq': record['sleepModeSeq']!,
+            'actualStartTime': record['startTime']!,
             'wakeCounts': record['wakeCounts'] ?? '',
             'isStartTruncated': true,
             'isEndTruncated': false,
           });
         }
       }
+    }
+
+    print('==== 나누어진 낮잠 데이터 ====');
+    for (var nap in napPortion) {
+      print('sleepTitle: ${nap['sleepTitle']}, startTime: ${nap['startTime']}, endTime: ${nap['endTime']}');
+    }
+
+    print('==== 나누어진 밤잠 데이터 ====');
+    for (var night in nightPortion) {
+      print('sleepTitle: ${night['sleepTitle']}, startTime: ${night['startTime']}, endTime: ${night['endTime']}');
     }
 
     return {'nap': napPortion, 'night': nightPortion};
@@ -1571,3 +1722,45 @@ class _buildSleepSummaryItem extends StatelessWidget {
     );
   }
 }
+
+// 오늘 수면 데이터 API 서비스
+class SleepApiService {
+
+  // 오늘 수면 상세 데이터 API 서비스
+  static Future<Map<String, dynamic>> getTodaySleepDetailData(int babyId, {String? startDt}) async {
+    try {
+      String url = '${getBaseUrl()}/today-sleep-detail?baby_id=$babyId';
+      if (startDt != null) {
+        url += '&start_dt=$startDt';
+      }
+      final uri = Uri.parse(url);
+      final response = await http.get(uri);
+
+      print('✅ Raw response data: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final decoded = json.decode(response.body);
+
+        print('✅ Raw decoded data type: ${decoded.runtimeType}');
+
+        if (decoded is List) {
+          if (decoded.isNotEmpty && decoded.first is Map<String, dynamic>) {
+            return decoded.first as Map<String, dynamic>;
+          } else {
+            throw Exception('Unexpected response structure: List is empty or elements are not Map<String, dynamic>');
+          }
+        } else if (decoded is Map<String, dynamic>) {
+          return decoded;
+        } else {
+          throw Exception('Unexpected response type: ${decoded.runtimeType}');
+        }
+      } else {
+        throw Exception('Failed to load today sleep detail data (${response.statusCode})');
+      }
+    } catch (e) {
+      print('❗ Error fetching today sleep detail data: $e');
+      rethrow;
+    }
+  }
+}
+

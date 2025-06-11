@@ -1,4 +1,5 @@
 import 'dart:io'; // Ensure this import is present at the top
+import 'package:http_parser/http_parser.dart';
 import 'package:eggie2/pages/device_current_log.dart';
 import 'package:eggie2/pages/device_page.dart';
 import 'package:eggie2/pages/mode_off.dart';
@@ -270,8 +271,8 @@ class _DeviceOffState extends State<DeviceOff> {
                     final title = log['sleep_mode'] ?? '기타';
                     final rawStart = log['expected_start_at'];
                     final rawEnd = log['expected_end_at'];
-                    final start = formatKoreanTime(rawStart);
-                    final end = formatKoreanTime(rawEnd);
+                    final start = formatKoreanTimeFromISO(rawStart);
+                    final end = formatKoreanTimeFromISO(rawEnd);
                     return _buildTodayLogItem(
                       title: title,
                       timeRange: '$start  -  $end',
@@ -316,6 +317,7 @@ class _DeviceOffState extends State<DeviceOff> {
             onTap: () {
               setState(() {
                 _isTodayLogExpanded = !_isTodayLogExpanded;
+                _todaySleepLogsFuture = fetchTodaySleepLogs(); // Force refresh when toggled
               });
             },
             child: Padding(
@@ -359,16 +361,50 @@ class _DeviceOffState extends State<DeviceOff> {
                   );
                 } else {
                   final data = snapshot.data ?? [];
+
+                  // ✅ 정렬: 한국시간 기준으로 DateTime.parse 사용 (ISO8601)
+                  data.sort((a, b) {
+                    DateTime dtA = DateTime.parse(a['start_time']).toLocal();
+                    DateTime dtB = DateTime.parse(b['start_time']).toLocal();
+                    print('DEBUG - Sorting A=${dtA.toIso8601String()}, B=${dtB.toIso8601String()}');
+                    return dtA.compareTo(dtB);
+                  });
+
+                  int napIdx = 0;
+                  int nightIdx = 0;
+
                   final grouped = data.map((log) {
-                    final title = log['sleep_mode'] ?? '기타';
                     final rawStart = log['start_time'];
                     final rawEnd = log['end_time'];
-                    // DEBUG print statement
-                    print('DEBUG - Today Sleep Log Item: sleep_mode=${log['sleep_mode']}, start_time=$rawStart, end_time=$rawEnd');
-                    final start = formatKoreanTime(rawStart);
-                    final end = formatKoreanTime(rawEnd);
+                    int hour = DateTime.parse(rawStart).toLocal().hour;
+
+                    // 낮잠/밤잠 판별
+                    String dayOrNight;
+                    if (hour >= 6 && hour < 20) {
+                      dayOrNight = '낮잠';
+                    } else {
+                      dayOrNight = '밤잠';
+                    }
+
+                    // 낮/밤 구분 변화 시 index 증가 및 mode 이름 구성
+                    String mode;
+                    if (dayOrNight == '낮잠') {
+                      napIdx++;
+                      mode = '낮잠$napIdx';
+                    } else {
+                      nightIdx++;
+                      mode = '밤잠$nightIdx';
+                    }
+
+                    print('DEBUG - Render mode=$mode, start=$rawStart');
+
+                    final startDt = DateTime.parse(rawStart).toLocal();
+                    final endDt = DateTime.parse(rawEnd).toLocal();
+                    final start = '${startDt.hour < 12 ? '오전' : '오후'} ${startDt.hour % 12 == 0 ? 12 : startDt.hour % 12}:${startDt.minute.toString().padLeft(2, '0')}';
+                    final end = '${endDt.hour < 12 ? '오전' : '오후'} ${endDt.hour % 12 == 0 ? 12 : endDt.hour % 12}:${endDt.minute.toString().padLeft(2, '0')}';
+
                     return _buildTodayLogItem(
-                      title: title,
+                      title: mode,
                       timeRange: '$start  -  $end',
                     );
                   }).toList();
@@ -509,28 +545,13 @@ class _buildDeviceLogWidget extends StatelessWidget {
                     .toList()
                     .firstWhere((_) => true, orElse: () => {});
 
-                String formatKoreanTime(String? raw) {
-                  if (raw == null) return '시간 없음';
-                  try {
-                    final dt = HttpDate.parse(
-                      raw,
-                    ).toLocal(); // Convert RFC 1123 to DateTime
-                    final hour = dt.hour % 12 == 0 ? 12 : dt.hour % 12;
-                    final period = dt.hour < 12 ? '오전' : '오후';
-                    final minute = dt.minute.toString().padLeft(2, '0');
-                    return '${dt.year}.${dt.month.toString().padLeft(2, '0')}.${dt.day.toString().padLeft(2, '0')} $period $hour:$minute';
-                  } catch (e) {
-                    return '날짜 오류';
-                  }
-                }
-
                 return Column(
                   children: [
                     _buildDeviceLogItem(
                       image: 'assets/images/eggie_day_sleep.png',
                       title: '낮잠',
                       date: latestDay.isNotEmpty
-                          ? formatKoreanDateTime(latestDay['recorded_at'])
+                          ? formatKoreanDateTimeFromISO(latestDay['recorded_at'])
                           : '기록 없음',
                     ),
                     const _buildDevider(),
@@ -538,7 +559,7 @@ class _buildDeviceLogWidget extends StatelessWidget {
                       image: 'assets/images/eggie_night_sleep.png',
                       title: '밤잠',
                       date: latestNight.isNotEmpty
-                          ? formatKoreanDateTime(latestNight['recorded_at'])
+                          ? formatKoreanDateTimeFromISO(latestNight['recorded_at'])
                           : '기록 없음',
                     ),
                   ],

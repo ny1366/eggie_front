@@ -33,6 +33,9 @@ class _ModeOffPageState extends State<ModeOffPage> {
   Map<String, String> autoEnvValues = {};
   Future<void>? _autoEnvFuture;
 
+  // 오늘의 수면 기록 Future
+  Future<Map<String, dynamic>>? _todaySleepLogsFuture;
+
   // 수면 시간 변수들
   String? sleepStartTime; // 수면 시작 시간
   String? sleepEndTime; // 수면 종료 시간
@@ -66,7 +69,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
     super.initState();
     _setModeBasedOnTime(); // 페이지 진입 시 시간 기준으로 탭 설정
     _autoEnvFuture = _loadSavedStates().then((_) => _fetchAutoEnvValues());
-    _fetchNextSleepModeLabel();
+    _todaySleepLogsFuture = fetchTodaySleepLogs();
 
     // 페이지 로드 후 바텀 시트 표시
     if (widget.showStopModal) {
@@ -83,51 +86,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
     }
   }
 
-  Future<void> _fetchNextSleepModeLabel() async {
-    try {
-      // final today = DateTime.now(); // ✅ 현재 날짜로 변경하려면 이렇게 설정
-      final today = DateTime(2024, 9, 16); // 🔧 테스트용 하드코딩된 날짜
-      final formatter = DateFormat('yyyy-MM-dd');
-      final startDt = formatter.format(today);
-      final endDt = formatter.format(today.add(const Duration(days: 1))); // ✅ 하루 더해줘야 함
-
-      final url = Uri.parse(
-        '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt'
-      );
-      final response = await http.get(url);
-
-      if (response.statusCode == 200) {
-        final List<dynamic> logs = jsonDecode(response.body);
-        int maxDayIndex = 0;
-        int maxNightIndex = 0;
-
-        for (var log in logs) {
-          final modeString = log['sleep_mode'] ?? '';
-          final mode = modeString.toString();
-
-          final dayMatch = RegExp(r'낮잠(\d+)').firstMatch(mode);
-          final nightMatch = RegExp(r'밤잠(\d+)').firstMatch(mode);
-
-          if (dayMatch != null) {
-            final index = int.tryParse(dayMatch.group(1) ?? '0') ?? 0;
-            if (index > maxDayIndex) maxDayIndex = index;
-          } else if (nightMatch != null) {
-            final index = int.tryParse(nightMatch.group(1) ?? '0') ?? 0;
-            if (index > maxNightIndex) maxNightIndex = index;
-          }
-        }
-
-        setState(() {
-          _nextDaySleepModeLabel = '낮잠${maxDayIndex + 1}';
-          _nextNightSleepModeLabel = '밤잠${maxNightIndex + 1}';
-        });
-      } else {
-        debugPrint('Failed to fetch today logs: ${response.statusCode}');
-      }
-    } catch (e) {
-      debugPrint('Error fetching today logs: $e');
-    }
-  }
+  // _fetchNextSleepModeLabel removed (functionality handled in fetchTodaySleepLogs)
 
   Future<void> _fetchAutoEnvValues() async {
     if (_hasFetchedAutoEnv) return;
@@ -318,9 +277,9 @@ class _ModeOffPageState extends State<ModeOffPage> {
     setState(() {
       isNap = isNapMode;
       _hasFetchedAutoEnv = false; // allow refetch for new tab
+      _todaySleepLogsFuture = fetchTodaySleepLogs();
     });
     _fetchAutoEnvValues();
-    _fetchNextSleepModeLabel();
   }
 
   // 수면 시간 계산 메서드
@@ -952,7 +911,9 @@ class _ModeOffPageState extends State<ModeOffPage> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(
-            nextModeLabel,
+            isNap
+                ? (_nextDaySleepModeLabel ?? '낮잠1')
+                : (_nextNightSleepModeLabel ?? '밤잠1'),
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
           ),
           IconButton(
@@ -1037,7 +998,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
           // 로그 아이템들 - 펼침 상태일 때만 표시
           if (_isLogExpanded)
             FutureBuilder<Map<String, dynamic>>(
-              future: fetchTodaySleepLogs(),
+              future: _todaySleepLogsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Padding(
@@ -1081,33 +1042,39 @@ class _ModeOffPageState extends State<ModeOffPage> {
     final formatter = DateFormat('yyyy-MM-dd');
     final startDt = formatter.format(today);
     final endDt = formatter.format(today.add(const Duration(days: 1)));
-
+    
+    // 기존 그대로 유지
     final response = await http.get(Uri.parse(
         '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt'));
 
     if (response.statusCode == 200) {
       final List<dynamic> logs = jsonDecode(response.body);
-      int maxDayIndex = 0;
-      int maxNightIndex = 0;
+      int dayIndex = 0;
+      int nightIndex = 0;
+      List<Map<String, dynamic>> groupedLogs = [];
 
       for (var log in logs) {
-        final modeString = log['sleep_mode'] ?? '';
-        final dayMatch = RegExp(r'낮잠(\d+)').firstMatch(modeString);
-        final nightMatch = RegExp(r'밤잠(\d+)').firstMatch(modeString);
-
-        if (dayMatch != null) {
-          final index = int.tryParse(dayMatch.group(1) ?? '0') ?? 0;
-          if (index > maxDayIndex) maxDayIndex = index;
-        } else if (nightMatch != null) {
-          final index = int.tryParse(nightMatch.group(1) ?? '0') ?? 0;
-          if (index > maxNightIndex) maxNightIndex = index;
+        String modeString = log['sleep_mode']?.toString() ?? '';
+        if (modeString.contains('낮잠')) {
+          dayIndex++;
+          log['sleep_mode'] = '낮잠$dayIndex';
+        } else if (modeString.contains('밤잠')) {
+          nightIndex++;
+          log['sleep_mode'] = '밤잠$nightIndex';
         }
+        groupedLogs.add(Map<String, dynamic>.from(log));
       }
 
+      // 👉 여기 추가!!
+      setState(() {
+        _nextDaySleepModeLabel = '낮잠${dayIndex + 1}';
+        _nextNightSleepModeLabel = '밤잠${nightIndex + 1}';
+      });
+
       return {
-        'logs': List<Map<String, dynamic>>.from(logs),
-        'next_day_label': '낮잠${maxDayIndex + 1}',
-        'next_night_label': '밤잠${maxNightIndex + 1}',
+        'logs': groupedLogs,
+        'next_day_label': _nextDaySleepModeLabel,
+        'next_night_label': _nextNightSleepModeLabel,
       };
     } else {
       throw Exception('Failed to load sleep logs');
@@ -1171,12 +1138,14 @@ class _ModeOffPageState extends State<ModeOffPage> {
                 ),
                 const SizedBox(height: 24),
 
-                // 낮잠 2
+                // 낮잠/밤잠 라벨 (동적으로)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     Text(
-                      isNap ? '낮잠 2' : '밤잠 1',
+                      isNap
+                          ? (_nextDaySleepModeLabel ?? '낮잠1')
+                          : (_nextNightSleepModeLabel ?? '밤잠1'),
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w500,

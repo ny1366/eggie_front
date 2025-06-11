@@ -7,6 +7,9 @@ import 'package:eggie2/pages/sleep_log.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:eggie2/services/api.dart';
 
 // 수면 데이터 모델
 class TodaySleepData {
@@ -33,25 +36,28 @@ class TodaySleepData {
   }
 }
 
-// Mock API 서비스 클래스
+// API 서비스 클래스
 class SleepApiService {
-  // 실제 API 연동 시 이 부분을 수정
-  static Future<TodaySleepData> getTodaySleepData() async {
-    // 임시 딜레이 (실제 API 호출 시뮬레이션)
-    await Future.delayed(const Duration(milliseconds: 500));
-
-    // Mock 데이터 (실제 API 연동 시 http 패키지 사용)
-    // TODO: 실제 API endpoint로 교체 필요
-    // final response = await http.get(Uri.parse('your-api-endpoint/today-sleep'));
-    // final data = json.decode(response.body);
-    // return TodaySleepData.fromJson(data);
-
-    return TodaySleepData(
-      napCount: 5, // 낮잠 총 횟수
-      napDuration: '3시간 30분', // 낮잠 총 시간
-      nightCount: 2, // 밤잠 총 횟수
-      nightDuration: '7시간 20분', // 밤잠 총 시간
-    );
+  // Now backed by the today-sleep-detail API (not today-sleep-summary)
+  static Future<TodaySleepData> getTodaySleepData(int babyId, {String? startDt}) async {
+    try {
+      String url = '${getBaseUrl()}/today-sleep-detail?baby_id=$babyId';
+      if (startDt != null) {
+        url += '&start_dt=$startDt';
+      }
+      final uri = Uri.parse(url);
+      final response = await http.get(uri);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        // napCount, napDuration, nightCount, nightDuration are at the top level of response (not inside sleepRecords)
+        return TodaySleepData.fromJson(data);
+      } else {
+        throw Exception('Failed to load today sleep data (${response.statusCode})');
+      }
+    } catch (e) {
+      print('❗ Error fetching today sleep data: $e');
+      rethrow;
+    }
   }
 }
 
@@ -81,7 +87,17 @@ class _UsefulFunctionPageState extends State<UsefulFunctionPage> {
         errorMessage = null;
       });
 
-      final data = await SleepApiService.getTodaySleepData();
+      final prefs = await SharedPreferences.getInstance();
+      final babyId = prefs.getInt('baby_id') ?? 1;
+
+      // Temporary hardcoded date for testing
+      final startDt = '2024-09-16';
+
+      // To use today dynamically in the future, use this:
+      // final today = DateTime.now();
+      // final startDt = '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+
+      final data = await SleepApiService.getTodaySleepData(babyId, startDt: startDt);
 
       setState(() {
         todaySleepData = data;

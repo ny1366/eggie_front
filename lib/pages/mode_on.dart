@@ -29,6 +29,9 @@ class ModeOnPage extends StatefulWidget {
 
 class _ModeOnPageState extends State<ModeOnPage> {
   Future<Map<String, String>>? _autoEnvFuture;
+  Future<Map<String, dynamic>>? _todaySleepLogsFuture;
+  String? _nextDaySleepModeLabel;
+  String? _nextNightSleepModeLabel;
   late bool isNap; // 낮잠 모드인지 여부
   bool isNapAuto = true; // 낮잠 모드의 자동 상태
   bool isNightAuto = true; // 밤잠 모드의 자동 상태
@@ -77,8 +80,9 @@ class _ModeOnPageState extends State<ModeOnPage> {
   @override
   void initState() {
     super.initState();
-    _autoEnvFuture = _fetchAutoEnvValues();
     _setModeBasedOnTime(); // 페이지 진입 시 시간 기준으로 탭 설정
+    _autoEnvFuture = _fetchAutoEnvValues();
+    _todaySleepLogsFuture = fetchTodaySleepLogs();
     _loadSavedStates();
     _startSleepStatusMonitoring(); // 수면 상태 모니터링 시작
     _loadAndFormatExpectedEndTime();
@@ -188,11 +192,12 @@ class _ModeOnPageState extends State<ModeOnPage> {
 
   // 탭 전환 - 수면 중일 때는 변경 불가
   void _onTabChanged(bool isNapMode) {
-  setState(() {
-    isNap = isNapMode;
-    _autoEnvFuture = _fetchAutoEnvValues(); // 탭 바뀔 때 자동 환경 새로 로드
-  });
-}
+    setState(() {
+      isNap = isNapMode;
+      _autoEnvFuture = _fetchAutoEnvValues(); // 탭 바뀔 때 자동 환경 새로 로드
+      _todaySleepLogsFuture = fetchTodaySleepLogs();
+    });
+  }
 
   // 수면 상태 실시간 모니터링 시작
   void _startSleepStatusMonitoring() {
@@ -313,8 +318,8 @@ class _ModeOnPageState extends State<ModeOnPage> {
     */
 
     // 👉 하드코딩된 종료 예정 시각
-    sleepExpectedEndDateTime = DateTime(2025, 6, 10, 7, 55); // 2025-06-10 07:55:00
-    sleepExpectedEndTime = '오전 7:55'; // 한국어 포맷 시각
+    sleepExpectedEndDateTime = DateTime(2025, 6, 18, 6, 53); // 2025-06-10 07:55:00
+    sleepExpectedEndTime = '오후 6:53'; // 한국어 포맷 시각
 
     print('🛠 하드코딩된 종료 예정 시각 사용: $sleepExpectedEndDateTime');
   }
@@ -583,10 +588,24 @@ class _ModeOnPageState extends State<ModeOnPage> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            // 👉🏻👉🏻👉🏻 DATA TODO: sleeping_mode + sequence 값 받아오기
-            isNap ? '낮잠 2' : '밤잠 1',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+          FutureBuilder<Map<String, dynamic>>(
+            future: _todaySleepLogsFuture,
+            builder: (context, snapshot) {
+              String label;
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                label = isNap ? '낮잠...' : '밤잠...';
+              } else if (snapshot.hasError || snapshot.data == null) {
+                label = isNap ? '낮잠1' : '밤잠1';
+              } else {
+                label = isNap
+                    ? (snapshot.data?['nextDayLabel'] ?? '낮잠1')
+                    : (snapshot.data?['nextNightLabel'] ?? '밤잠1');
+              }
+              return Text(
+                label,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+              );
+            },
           ),
           IconButton(
             icon: SvgPicture.asset(
@@ -854,51 +873,107 @@ class _ModeOnPageState extends State<ModeOnPage> {
 
   // 자동 환경값을 서버에서 불러오는 함수 (최신 낮잠/밤잠 환경값, 낮잠 우선)
   Future<Map<String, String>> _fetchAutoEnvValues() async {
-  try {
-    final url = Uri.parse('${getBaseUrl()}/detailed-history/1');
-    final response = await http.get(url);
+    try {
+      final url = Uri.parse('${getBaseUrl()}/detailed-history/1');
+      final response = await http.get(url);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+
+        // 최신 밤잠과 낮잠 값을 추출
+        Map<String, dynamic>? latestDay;
+        Map<String, dynamic>? latestNight;
+
+        for (var entry in data.reversed) {
+          if (latestDay == null && entry['sleep_mode'] == 'day') {
+            latestDay = entry;
+          }
+          if (latestNight == null && entry['sleep_mode'] == 'night') {
+            latestNight = entry;
+          }
+          if (latestDay != null && latestNight != null) break;
+        }
+
+        // 현재 모드에 따라 적절한 값을 선택
+        final latest = isNap ? latestDay : latestNight;
+        if (latest == null) throw Exception("No env data found for current mode");
+
+        // Round all values and append proper units
+        return {
+          'temp': '${latest['temperature'].round()}°C',
+          'humidity': '${latest['humidity'].round()}%',
+          'brightness': '${latest['brightness'].round()}%',
+          'sound': '${latest['white_noise_level'].round()}dB',
+        };
+      } else {
+        throw Exception('Failed to load env data');
+      }
+    } catch (e) {
+      print("Error fetching env values: $e");
+      return {
+        'temp': '--',
+        'humidity': '--',
+        'brightness': '--',
+        'sound': '--',
+      };
+    }
+  }
+
+  /// 오늘의 수면 로그를 불러오고, 다음 낮잠/밤잠 라벨을 계산
+  Future<Map<String, dynamic>> fetchTodaySleepLogs() async {
+    // 👉 NOTE: 현재는 2024-09-16 고정 날짜로 테스트 중. 나중에 DateTime.now()로 변경 예정.
+    final startDt = '2024-09-16';
+    final endDt = '2024-09-17';
+
+    final response = await http.get(Uri.parse(
+      '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt'
+    ));
 
     if (response.statusCode == 200) {
-      final List<dynamic> data = jsonDecode(response.body);
+      final List<dynamic> logs = jsonDecode(response.body);
+      // 👉 디버깅용: API 결과 로그 출력
+      print('👉 Today Sleep Logs:');
+      for (var log in logs) {
+        print(log);
+      }
+      int nextDayIdx = 0;
+      int nextNightIdx = 0;
 
-      // 최신 밤잠과 낮잠 값을 추출
-      Map<String, dynamic>? latestDay;
-      Map<String, dynamic>? latestNight;
-
-      for (var entry in data.reversed) {
-        if (latestDay == null && entry['sleep_mode'] == 'day') {
-          latestDay = entry;
+      for (var log in logs) {
+        final modeString = log['sleep_mode']?.toString() ?? '';
+        if (modeString.contains('낮잠')) {
+          nextDayIdx++;
+        } else if (modeString.contains('밤잠')) {
+          nextNightIdx++;
         }
-        if (latestNight == null && entry['sleep_mode'] == 'night') {
-          latestNight = entry;
-        }
-        if (latestDay != null && latestNight != null) break;
       }
 
-      // 현재 모드에 따라 적절한 값을 선택
-      final latest = isNap ? latestDay : latestNight;
-      if (latest == null) throw Exception("No env data found for current mode");
+      final nextDayLabel = '낮잠${nextDayIdx + 1}';
+      final nextNightLabel = '밤잠${nextNightIdx + 1}';
 
-      // Round all values and append proper units
+      setState(() {
+        _nextDaySleepModeLabel = nextDayLabel;
+        _nextNightSleepModeLabel = nextNightLabel;
+      });
+
       return {
-        'temp': '${latest['temperature'].round()}°C',
-        'humidity': '${latest['humidity'].round()}%',
-        'brightness': '${latest['brightness'].round()}%',
-        'sound': '${latest['white_noise_level'].round()}dB',
+        'logs': logs,
+        'nextDayLabel': nextDayLabel,
+        'nextNightLabel': nextNightLabel,
       };
     } else {
-      throw Exception('Failed to load env data');
+      setState(() {
+        _nextDaySleepModeLabel = '낮잠1';
+        _nextNightSleepModeLabel = '밤잠1';
+      });
+
+      return {
+        'logs': [],
+        'nextDayLabel': '낮잠1',
+        'nextNightLabel': '밤잠1',
+      };
     }
-  } catch (e) {
-    print("Error fetching env values: $e");
-    return {
-      'temp': '--',
-      'humidity': '--',
-      'brightness': '--',
-      'sound': '--',
-    };
   }
-}
 
   Widget _buildEnvInfoItem({
     required String icon,
@@ -1350,3 +1425,5 @@ class _SleepTabHeaderDelegate extends SliverPersistentHeaderDelegate {
     return true;
   }
 }
+
+
