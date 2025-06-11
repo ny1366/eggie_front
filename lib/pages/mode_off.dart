@@ -48,7 +48,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
     'temp': ['18°C', '19°C', '20°C', '21°C'],
     'humidity': ['20%', '30%', '40%', '50%'],
     'wind': ['OFF', '약풍', '중풍', '강풍'],
-    'brightness': ['0%', '5%', '10%', '20%'],
+    'brightness': ['0%', '5%', '10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%'],
     'humid': ['OFF', '낮음', '중간', '높음'],
     'dehumid': ['OFF', '약하게', '보통', '강하게'],
     'sound': ['20dB', '29dB', '35dB', '40dB'],
@@ -76,12 +76,13 @@ class _ModeOffPageState extends State<ModeOffPage> {
       // 수면 시간 불러오기
       _loadSleepTimes();
 
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) {
-            _showStopModeBottomSheet(context);
-          }
-        });
+      _todaySleepLogsFuture?.then((_) {
+        if (mounted) {
+          final localNextModeLabel = isNap
+              ? (_nextDaySleepModeLabel ?? '낮잠1')
+              : (_nextNightSleepModeLabel ?? '밤잠1');
+          _showStopModeBottomSheet(context, nextModeLabel: localNextModeLabel);
+        }
       });
     }
   }
@@ -1108,7 +1109,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
     );
   }
 
-  void _showStopModeBottomSheet(BuildContext context) {
+  void _showStopModeBottomSheet(BuildContext context, {String? nextModeLabel}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1143,9 +1144,10 @@ class _ModeOffPageState extends State<ModeOffPage> {
                   mainAxisAlignment: MainAxisAlignment.start,
                   children: [
                     Text(
-                      isNap
-                          ? (_nextDaySleepModeLabel ?? '낮잠1')
-                          : (_nextNightSleepModeLabel ?? '밤잠1'),
+                      nextModeLabel ??
+                          (isNap
+                              ? (_nextDaySleepModeLabel ?? '낮잠1')
+                              : (_nextNightSleepModeLabel ?? '밤잠1')),
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.w500,

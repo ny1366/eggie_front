@@ -159,14 +159,7 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
   @override
   void initState() {
     super.initState();
-    selectedSleepData = {
-      'sleepTitle': '낮잠 1',
-      'actualStartTime': '06:28',
-      'actualEndTime': '08:22',
-      'expectedStartTime': '06:20',
-      'expectedEndTime': '08:20',
-      'wakeCounts': '1',
-    };
+    selectedSleepData = null;
     _loadTodaySleepDetailData();
   }
 
@@ -745,13 +738,13 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
       String expectedStartTime = '';
       String expectedEndTime = '';
       for (var expectedData in _allExpectedSleepData) {
-      if (expectedData['sleepTitle'] == sleepTitle &&
-          expectedData['actualStartTime'] == data['startTime']) {
-        expectedStartTime = expectedData['startTime']!;
-        expectedEndTime = expectedData['endTime']!;
-        break;
+        if (expectedData['sleepTitle'] == sleepTitle &&
+            expectedData['actualStartTime'] == data['startTime']) {
+          expectedStartTime = expectedData['startTime']!;
+          expectedEndTime = expectedData['endTime']!;
+          break;
+        }
       }
-    }
 
       return _buildClickableSleepBar(
         left: left,
@@ -768,6 +761,7 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
           'expectedStartTime': expectedStartTime,
           'expectedEndTime': expectedEndTime,
           'wakeCounts': data['wakeCounts'] ?? '',
+          'sleepMode': data['sleepMode'],
         },
       );
     }).toList();
@@ -1115,13 +1109,13 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
       String expectedStartTime = '';
       String expectedEndTime = '';
       for (var expectedData in _allExpectedSleepData) {
-      if (expectedData['sleepTitle'] == sleepTitle &&
-          expectedData['actualStartTime'] == data['startTime']) {
-        expectedStartTime = expectedData['startTime']!;
-        expectedEndTime = expectedData['endTime']!;
-        break;
+        if (expectedData['sleepTitle'] == sleepTitle &&
+            expectedData['actualStartTime'] == data['startTime']) {
+          expectedStartTime = expectedData['startTime']!;
+          expectedEndTime = expectedData['endTime']!;
+          break;
+        }
       }
-    }
 
       return _buildClickableSleepBar(
         left: left,
@@ -1138,6 +1132,7 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
           'expectedStartTime': expectedStartTime,
           'expectedEndTime': expectedEndTime,
           'wakeCounts': data['wakeCounts'] ?? '',
+          'sleepMode': data['sleepMode'],
         },
       );
     }).toList();
@@ -1340,16 +1335,6 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
       }
     }
 
-    print('==== 나누어진 낮잠 데이터 ====');
-    for (var nap in napPortion) {
-      print('sleepTitle: ${nap['sleepTitle']}, startTime: ${nap['startTime']}, endTime: ${nap['endTime']}');
-    }
-
-    print('==== 나누어진 밤잠 데이터 ====');
-    for (var night in nightPortion) {
-      print('sleepTitle: ${night['sleepTitle']}, startTime: ${night['startTime']}, endTime: ${night['endTime']}');
-    }
-
     return {'nap': napPortion, 'night': nightPortion};
   }
 
@@ -1380,14 +1365,17 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
     // 👉🏻👉🏻👉🏻 TODO: 추후 수면 상세 데이터 점검 + Title에 있는 기록 날짜도 불러와야함
     StringBuffer sleepDetails = StringBuffer();
     for (var sleep in _allActualSleepData) {
+      String formattedTitle = sleep['sleepTitle']!.padRight(6);
       sleepDetails.writeln(
-        '• ${sleep['sleepTitle']}: ${sleep['startTime']} - ${sleep['endTime']} (깬 횟수: ${sleep['wakeCounts']}회)',
+        '• $formattedTitle: ${sleep['startTime']} - ${sleep['endTime']} (깬 횟수: ${sleep['wakeCounts']}회)',
       );
     }
 
+    String formattedShareDate = _formatKoreanDate(_selectedStartDt);
+
     String shareText =
         '''
-🍼 2025.6.4 수요일 수면 기록
+🍼 $formattedShareDate 수면 기록
 
 📊 전체 수면 시간: $_totalSleepTime
 
@@ -1400,7 +1388,7 @@ ${sleepDetails.toString().trim()}
 👉 MADE BY LG EGGie
 
 #육아 #수면기록 #에기
-    '''
+        '''
             .trim();
 
     Share.share(shareText);

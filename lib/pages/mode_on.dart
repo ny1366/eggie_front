@@ -61,7 +61,8 @@ class _ModeOnPageState extends State<ModeOnPage> {
     'temp': ['18°C', '19°C', '20°C', '21°C'],
     'humidity': ['20%', '30%', '40%', '50%'],
     'wind': ['OFF', '약풍', '중풍', '강풍'],
-    'brightness': ['0%', '5%', '10%', '20%'],
+    'brightness': ['0%', '5%', '10%', '20%','30%', '40%', '50%', '60%',
+      '70%', '80%', '90%', '100%'],
     'humid': ['OFF', '낮음', '중간', '높음'],
     'dehumid': ['OFF', '약하게', '보통', '강하게'],
     'sound': ['20dB', '29dB', '35dB', '40dB'],
@@ -191,10 +192,25 @@ class _ModeOnPageState extends State<ModeOnPage> {
   }
 
   // 탭 전환 - 수면 중일 때는 변경 불가
-  void _onTabChanged(bool isNapMode) {
+  void _onTabChanged(bool isNapMode) async {
+    final prefs = await SharedPreferences.getInstance();
+    final isSleepActive = prefs.getBool('sleep_session_active') ?? false;
+
+    if (isSleepActive) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('현재 수면 중에는 모드를 변경할 수 없습니다.'),
+            duration: Duration(milliseconds: 1500),
+          ),
+        );
+      }
+      return;
+    }
+
     setState(() {
       isNap = isNapMode;
-      _autoEnvFuture = _fetchAutoEnvValues(); // 탭 바뀔 때 자동 환경 새로 로드
+      _autoEnvFuture = _fetchAutoEnvValues();
       _todaySleepLogsFuture = fetchTodaySleepLogs();
     });
   }
@@ -808,7 +824,7 @@ class _ModeOnPageState extends State<ModeOnPage> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     Container(
-                      width: 40,
+                      width: 34,
                       height: 24,
                       child: Text(
                         '현재',
@@ -820,9 +836,9 @@ class _ModeOnPageState extends State<ModeOnPage> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 24),
+                    const SizedBox(width: 38),
                     Container(
-                      width: 40,
+                      width: 50,
                       height: 24,
                       child: Text(
                         '희망',
@@ -1294,22 +1310,27 @@ Container _buildSleepingEnvItem({
     padding: const EdgeInsets.symmetric(vertical: 10),
     child: Row(
       children: [
-        Row(
-          children: [
-            Image.asset(icon, width: 40, height: 40),
-            const SizedBox(width: 8),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.w400,
-                color: Color(0xFF111111),
+        Expanded(
+          flex: 3,
+          child: Row(
+            children: [
+              Image.asset(icon, width: 40, height: 40),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w400,
+                  color: Color(0xFF111111),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        Spacer(),
-        SizedBox(
+        // "현재" 값 (full value string)
+        Container(
+          width: 50,
+          alignment: Alignment.centerLeft,
           child: Text(
             getEnvValueByLabel(label),
             style: TextStyle(
@@ -1318,10 +1339,12 @@ Container _buildSleepingEnvItem({
               color: Color(0xFF111111),
             ),
           ),
-          width: 40,
         ),
         const SizedBox(width: 24),
-        SizedBox(
+        // "희망" 값 (full value string)
+        Container(
+          width: 50,
+          alignment: Alignment.centerLeft,
           child: Text(
             envValues[keyName]!,
             style: TextStyle(
@@ -1330,7 +1353,6 @@ Container _buildSleepingEnvItem({
               color: Color(0xFF111111),
             ),
           ),
-          width: 40,
         ),
       ],
     ),
