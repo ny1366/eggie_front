@@ -172,7 +172,7 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
       final data = await SleepApiService.getTodaySleepDetailData(babyId, startDt: _selectedStartDt);
 
       // data is Map<String, dynamic>
-      final sleepRecords = (data['sleepRecords'] as List<dynamic>).cast<Map<String, dynamic>>();
+      final sleepRecords = (data['sleepRecords'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
       List<Map<String, String>> actualSleepData = [];
       List<Map<String, String>> expectedSleepData = [];
       List<String> wakeTimesData = [];
@@ -714,7 +714,7 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
   // 수면 데이터 적용된 영역
   List<Widget> _buildActualNapBars() {
     var splitData = _splitSleepRecords(_allActualSleepData);
-    List<Map<String, dynamic>> actualNapData = splitData['nap']!;
+  List<Map<String, dynamic>> actualNapData = splitData['nap'] ?? [];
 
     return actualNapData.asMap().entries.map((entry) {
       int index = entry.key;
@@ -1084,7 +1084,7 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
   // 수면 데이터 적용된 영역
   List<Widget> _buildActualNightBars() {
     var splitData = _splitSleepRecords(_allActualSleepData);
-    List<Map<String, dynamic>> actualNightData = splitData['night']!;
+    List<Map<String, dynamic>> actualNightData = splitData['night'] ?? [];
 
     
     return actualNightData.asMap().entries.map((entry) {
@@ -1189,8 +1189,16 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
     List<Map<String, dynamic>> nightPortion = [];
 
     for (var record in sleepData) {
-      var startTime = _parseTime(record['startTime']!);
-      var endTime = _parseTime(record['endTime']!);
+      var startTimeStr = record['startTime'] ?? '';
+      var endTimeStr = record['endTime'] ?? '';
+
+      // 빈 값일 경우 skip
+      if (startTimeStr.isEmpty || endTimeStr.isEmpty) {
+        continue;
+      }
+
+      var startTime = _parseTime(startTimeStr);
+      var endTime = _parseTime(endTimeStr);
 
       int startHour = startTime['hour']!;
       int endHour = endTime['hour']!;

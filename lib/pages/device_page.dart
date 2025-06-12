@@ -191,42 +191,51 @@ class _DeviceCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Ink(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFD8DADC),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Image.asset(image, width: 41.25, height: 41.25),
-            const SizedBox(height: 6),
-            Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontSize: 14,
-                color: Color(0xFF111111),
-              ),
-            ),
-            Text(
-              subtitle,
-              style: const TextStyle(
-                fontWeight: FontWeight.w400,
-                fontSize: 13,
-                color: Color(0xFF606C80),
-              ),
-            ),
-          ],
-        ),
+Widget build(BuildContext context) {
+  bool isEggieDevice = title == 'EGGie';  // 여기에 추가
+
+  return InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(20),
+    child: Ink(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFD8DADC),
+        borderRadius: BorderRadius.circular(20),
       ),
-    );
-  }
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+  width: isEggieDevice ? 40 : 40,
+  height: isEggieDevice ? 40 : 40,
+  child: Image.asset(
+    image,
+    fit: BoxFit.cover,
+  ),
+),
+          const SizedBox(height: 6),
+          Text(
+            title,
+            style: const TextStyle(
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
+              color: Color(0xFF111111),
+            ),
+          ),
+          Text(
+            subtitle,
+            style: const TextStyle(
+              fontWeight: FontWeight.w400,
+              fontSize: 13,
+              color: Color(0xFF606C80),
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
 }
 
 class _buildTopBar extends StatelessWidget {

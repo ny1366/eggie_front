@@ -264,9 +264,9 @@ class _DeviceShortcutState extends State<_DeviceShortcut> {
             child: Center(
               child: Image.asset(
                 widget.icon,
-                width: 40,
-                height: 40,
-                fit: BoxFit.contain,
+                width: isEggieDevice ? 40 : 40,  
+                height: isEggieDevice ? 40 : 40, 
+                fit: BoxFit.cover,
               ),
             ),
           ),
