@@ -7,14 +7,14 @@ import 'package:dotted_border/dotted_border.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:share_plus/share_plus.dart';
 
-class TodaySleepLogPage extends StatefulWidget {
-  const TodaySleepLogPage({super.key});
+class SleepLogHardPage extends StatefulWidget {
+  const SleepLogHardPage({super.key});
 
   @override
-  State<TodaySleepLogPage> createState() => _TodaySleepLogPageState();
+  State<SleepLogHardPage> createState() => SleepLogHardPageState();
 }
 
-class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
+class SleepLogHardPageState extends State<SleepLogHardPage> {
   // AI 피드백 확장 상태 변수
   bool _isAIFeedbackExpanded = false;
 
@@ -81,8 +81,10 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
   int _nightSleepCount = 0;
 
   // 선택된 날짜 (API startDt) - 테스트용 하드코딩 날짜 사용 중
-  // String _selectedStartDt = '2024-09-16';
-  String _selectedStartDt = '';
+  // TODO: 오늘 날짜 자동 사용 시 아래 코드 참고
+  // final today = DateTime.now();
+  // _selectedStartDt = '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+  String _selectedStartDt = '2024-09-16';
 
   // 날짜 문자열을 한국어 형식 (YYYY.MM.DD 요일요일)으로 변환
   String _formatKoreanDate(String dateStr) {
@@ -157,8 +159,6 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
   @override
   void initState() {
     super.initState();
-    final today = DateTime.now();
-    _selectedStartDt = '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
     selectedSleepData = null;
     _loadTodaySleepDetailData();
   }
@@ -234,7 +234,7 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
       backgroundColor: const Color(0xFFEDF2F4),
       appBar: _buildTopBar(
         context,
-        title: _formatKoreanDate(_selectedStartDt),
+        title: '2025.06.04 수요일',
       ), // 👉🏻👉🏻👉🏻 지정한 날짜 or 오늘 날짜로 교체 완료
         
 

@@ -90,12 +90,9 @@ class _UsefulFunctionPageState extends State<UsefulFunctionPage> {
       final prefs = await SharedPreferences.getInstance();
       final babyId = prefs.getInt('baby_id') ?? 1;
 
-      // Temporary hardcoded date for testing
-      final startDt = '2024-09-16';
-
-      // To use today dynamically in the future, use this:
-      // final today = DateTime.now();
-      // final startDt = '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
+      // final startDt = '2024-09-16';
+      final today = DateTime.now();
+      final startDt = '${today.year.toString().padLeft(4, '0')}-${today.month.toString().padLeft(2, '0')}-${today.day.toString().padLeft(2, '0')}';
 
       final data = await SleepApiService.getTodaySleepData(babyId, startDt: startDt);
 

@@ -34,7 +34,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
   Future<void>? _autoEnvFuture;
 
   // 오늘의 수면 기록 Future
-  Future<Map<String, dynamic>>? _todaySleepLogsFuture;
+  Future<List<dynamic>>? _todaySleepLogsFuture;
 
   // 수면 시간 변수들
   String? sleepStartTime; // 수면 시작 시간
@@ -169,29 +169,29 @@ class _ModeOffPageState extends State<ModeOffPage> {
     print('Sleep session activated');
 
     // ✅ DB에 저장
-    // await sendStartTime(now);
+    await sendStartTime(now);
   }
 
   // 수면 시작시간 insert하는 API 호출 함수
-  // Future<void> sendStartTime(DateTime startTime) async {
-  //   final baseUrl = getBaseUrl();
-  //   final url = Uri.parse('$baseUrl/report/1');
+  Future<void> sendStartTime(DateTime startTime) async {
+    final baseUrl = getBaseUrl();
+    final url = Uri.parse('$baseUrl/report/1');
 
-  //   final response = await http.post(
-  //     url,
-  //     headers: {'Content-Type': 'application/json'},
-  //     body: jsonEncode({
-  //       "baby_id": 1,
-  //       "start_time": startTime.toIso8601String(),
-  //     }),
-  //   );
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        "baby_id": 1,
+        "start_time": startTime.toIso8601String(),
+      }),
+    );
 
-  //   if (response.statusCode == 200) {
-  //     print('등록 성공: ${response.body}');
-  //   } else {
-  //     print('등록 실패: ${response.body}');
-  //   }
-  // }
+    if (response.statusCode == 200) {
+      print('등록 성공: ${response.body}');
+    } else {
+      print('등록 실패: ${response.body}');
+    }
+  }
 
   // 저장된 수면 시간들을 불러오기
   Future<void> _loadSleepTimes() async {
@@ -998,7 +998,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
           ),
           // 로그 아이템들 - 펼침 상태일 때만 표시
           if (_isLogExpanded)
-            FutureBuilder<Map<String, dynamic>>(
+            FutureBuilder<List<dynamic>>(
               future: _todaySleepLogsFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -1012,11 +1012,18 @@ class _ModeOffPageState extends State<ModeOffPage> {
                     child: Text('에러 발생'),
                   );
                 } else {
-                  final logs = (snapshot.data?['logs'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+                  final logs = snapshot.data ?? [];
+
+                  if (logs.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Text('오늘 기록 없음'),
+                    );
+                  }
 
                   final grouped = logs.map((log) {
                     final title = log['sleep_mode'] ?? '기타';
-                    final rawStart = log['recorded_at'];
+                    final rawStart = log['start_time'];
                     final rawEnd = log['end_time'];
 
                     final start = formatKoreanTime(rawStart);
@@ -1037,46 +1044,34 @@ class _ModeOffPageState extends State<ModeOffPage> {
     );
   }
 
-  Future<Map<String, dynamic>> fetchTodaySleepLogs() async {
-    // final today = DateTime.now(); // ✅ 실제 동작 시 현재 날짜로 설정
-    final today = DateTime(2024, 9, 16); // 🔧 테스트용 하드코딩된 날짜
+  Future<List<dynamic>> fetchTodaySleepLogs() async {
+    final today = DateTime.now(); // ✅ 실제 동작 시 현재 날짜로 설정
+    // final today = DateTime(2024, 9, 16); // 🔧 테스트용 하드코딩된 날짜
     final formatter = DateFormat('yyyy-MM-dd');
     final startDt = formatter.format(today);
     final endDt = formatter.format(today.add(const Duration(days: 1)));
-    
-    // 기존 그대로 유지
+
     final response = await http.get(Uri.parse(
         '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt'));
 
     if (response.statusCode == 200) {
       final List<dynamic> logs = jsonDecode(response.body);
+
       int dayIndex = 0;
       int nightIndex = 0;
-      List<Map<String, dynamic>> groupedLogs = [];
 
       for (var log in logs) {
-        String modeString = log['sleep_mode']?.toString() ?? '';
-        if (modeString.contains('낮잠')) {
-          dayIndex++;
-          log['sleep_mode'] = '낮잠$dayIndex';
-        } else if (modeString.contains('밤잠')) {
-          nightIndex++;
-          log['sleep_mode'] = '밤잠$nightIndex';
-        }
-        groupedLogs.add(Map<String, dynamic>.from(log));
+        String modeString = log['sleep_mode'] ?? '';
+        if (modeString.contains('낮잠')) dayIndex++;
+        if (modeString.contains('밤잠')) nightIndex++;
       }
 
-      // 👉 여기 추가!!
       setState(() {
         _nextDaySleepModeLabel = '낮잠${dayIndex + 1}';
         _nextNightSleepModeLabel = '밤잠${nightIndex + 1}';
       });
 
-      return {
-        'logs': groupedLogs,
-        'next_day_label': _nextDaySleepModeLabel,
-        'next_night_label': _nextNightSleepModeLabel,
-      };
+      return logs;
     } else {
       throw Exception('Failed to load sleep logs');
     }

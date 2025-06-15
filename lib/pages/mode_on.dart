@@ -99,7 +99,7 @@ class _ModeOnPageState extends State<ModeOnPage> {
   // 현재 시간을 기준으로 낮잠/밤잠 모드 설정
   void _setModeBasedOnTime() {
     final now = TimeOfDay.now();
-    final eveningStartHour = 18; // 오후 6시
+    final eveningStartHour = 20; // 오후 8시
 
     setState(() {
       isNap = now.hour < eveningStartHour;
@@ -334,8 +334,8 @@ class _ModeOnPageState extends State<ModeOnPage> {
     */
 
     // 👉 하드코딩된 종료 예정 시각
-    sleepExpectedEndDateTime = DateTime(2025, 6, 18, 6, 53); // 2025-06-10 07:55:00
-    sleepExpectedEndTime = '오후 6:53'; // 한국어 포맷 시각
+    sleepExpectedEndDateTime = DateTime(2025, 6, 17, 18, 00); // 2025-06-10 07:55:00
+    sleepExpectedEndTime = '오후 6:00'; // 한국어 포맷 시각
 
     print('🛠 하드코딩된 종료 예정 시각 사용: $sleepExpectedEndDateTime');
   }
@@ -439,33 +439,33 @@ class _ModeOnPageState extends State<ModeOnPage> {
     print('Sleep session deactivated');
 
     // 👉 TODO: DB에 수면 종료 시간 저장
-    // await updateEndTimeDuration(now);
+    await updateEndTimeDuration(now);
   }
 
-  // // API 호출 함수: 종료시간과 duration 업데이트
-  // Future<void> updateEndTimeDuration(DateTime endTime) async {
-  //   final url = Uri.parse('${getBaseUrl()}/report/1/end');
+  // API 호출 함수: 종료시간과 duration 업데이트
+  Future<void> updateEndTimeDuration(DateTime endTime) async {
+    final url = Uri.parse('${getBaseUrl()}/report/1/end');
 
-  //   final response = await http.put(
-  //     url,
-  //     headers: {'Content-Type': 'application/json'},
-  //     body: jsonEncode({
-  //       "end_time": endTime.toIso8601String(),
-  //     }),
-  //   );
+    final response = await http.put(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        "end_time": endTime.toIso8601String(),
+      }),
+    );
 
-  //   if (response.statusCode == 200) {
-  //     print('종료시간 업데이트 완료');
-  //   } else {
-  //     print('에러: ${response.body}');
-  //   }
-  // }
+    if (response.statusCode == 200) {
+      print('종료시간 업데이트 완료');
+    } else {
+      print('에러: ${response.body}');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // 현재 시간이 오후 6시 이전이면 낮잠, 이후면 밤잠이 적절
+    // 현재 시간이 오후 8시 이전이면 낮잠, 이후면 밤잠이 적절
     final now = TimeOfDay.now();
-    final eveningStartHour = 18;
+    final eveningStartHour = 20;
     final isNapTime = now.hour < eveningStartHour;
 
     // 현재 시간대와 선택된 탭이 불일치하는지 확인
@@ -937,9 +937,14 @@ class _ModeOnPageState extends State<ModeOnPage> {
 
   /// 오늘의 수면 로그를 불러오고, 다음 낮잠/밤잠 라벨을 계산
   Future<Map<String, dynamic>> fetchTodaySleepLogs() async {
-    // 👉 NOTE: 현재는 2024-09-16 고정 날짜로 테스트 중. 나중에 DateTime.now()로 변경 예정.
-    final startDt = '2024-09-16';
-    final endDt = '2024-09-17';
+    // 👉 날짜 지정 하드코딩
+    // final startDt = '2024-09-16';
+    // final endDt = '2024-09-17';
+    final formatter = DateFormat('yyyy-MM-dd');
+    // 👉 현재 날짜로 변경
+    final now = DateTime.now();
+    final startDt = formatter.format(now);
+    final endDt = formatter.format(now.add(const Duration(days: 1)));
 
     final response = await http.get(Uri.parse(
       '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt'
@@ -952,20 +957,22 @@ class _ModeOnPageState extends State<ModeOnPage> {
       for (var log in logs) {
         print(log);
       }
-      int nextDayIdx = 0;
-      int nextNightIdx = 0;
+      int lastNapSeq = 0;
+      int lastNightSeq = 0;
 
       for (var log in logs) {
-        final modeString = log['sleep_mode']?.toString() ?? '';
-        if (modeString.contains('낮잠')) {
-          nextDayIdx++;
-        } else if (modeString.contains('밤잠')) {
-          nextNightIdx++;
+        final mode = log['sleep_mode'];
+        final seq = log['sleep_mode_seq'];
+        if (mode == '낮잠' && seq != null) {
+          lastNapSeq = seq > lastNapSeq ? seq : lastNapSeq;
+        }
+        if (mode == '밤잠' && seq != null) {
+          lastNightSeq = seq > lastNightSeq ? seq : lastNightSeq;
         }
       }
 
-      final nextDayLabel = '낮잠${nextDayIdx + 1}';
-      final nextNightLabel = '밤잠${nextNightIdx + 1}';
+      final nextDayLabel = '낮잠${lastNapSeq + 1}';
+      final nextNightLabel = '밤잠${lastNightSeq + 1}';
 
       setState(() {
         _nextDaySleepModeLabel = nextDayLabel;

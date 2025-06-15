@@ -45,10 +45,10 @@ class _DeviceOffState extends State<DeviceOff> {
   void initState() {
     super.initState();
     // ✅ 테스트용 날짜 고정 시 아래 사용:
-    _todayDate = DateTime(2024, 9, 16);
+    // _todayDate = DateTime(2024, 9, 16);
     
     // ✅ 운영 시 오늘 날짜 사용:
-    // _todayDate = DateTime.now();
+    _todayDate = DateTime.now();
     _todaySleepLogsFuture = fetchTodaySleepLogs();
     _latestSleepLogsFuture = fetchLatestSleepLogs();
     _estimatedSleepScheduleFuture = fetchTodayEstimatedSleepSchedule();
@@ -370,33 +370,10 @@ class _DeviceOffState extends State<DeviceOff> {
                     return dtA.compareTo(dtB);
                   });
 
-                  int napIdx = 0;
-                  int nightIdx = 0;
-
                   final grouped = data.map((log) {
                     final rawStart = log['start_time'];
                     final rawEnd = log['end_time'];
-                    int hour = DateTime.parse(rawStart).toLocal().hour;
-
-                    // 낮잠/밤잠 판별
-                    String dayOrNight;
-                    if (hour >= 6 && hour < 20) {
-                      dayOrNight = '낮잠';
-                    } else {
-                      dayOrNight = '밤잠';
-                    }
-
-                    // 낮/밤 구분 변화 시 index 증가 및 mode 이름 구성
-                    String mode;
-                    if (dayOrNight == '낮잠') {
-                      napIdx++;
-                      mode = '낮잠$napIdx';
-                    } else {
-                      nightIdx++;
-                      mode = '밤잠$nightIdx';
-                    }
-
-                    print('DEBUG - Render mode=$mode, start=$rawStart');
+                    final title = log['sleep_mode'];
 
                     final startDt = DateTime.parse(rawStart).toLocal();
                     final endDt = DateTime.parse(rawEnd).toLocal();
@@ -404,7 +381,7 @@ class _DeviceOffState extends State<DeviceOff> {
                     final end = '${endDt.hour < 12 ? '오전' : '오후'} ${endDt.hour % 12 == 0 ? 12 : endDt.hour % 12}:${endDt.minute.toString().padLeft(2, '0')}';
 
                     return _buildTodayLogItem(
-                      title: mode,
+                      title: title,
                       timeRange: '$start  -  $end',
                     );
                   }).toList();

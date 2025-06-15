@@ -1,4 +1,5 @@
 import 'package:eggie2/pages/sleep_log.dart';
+import 'package:eggie2/pages/sleep_log_hard.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:math';
@@ -538,7 +539,7 @@ class _CalendarPageState extends State<CalendarPage> {
                     context,
                     PageRouteBuilder(
                       pageBuilder: (context, animation, secondaryAnimation) =>
-                          const TodaySleepLogPage(),
+                          const SleepLogHardPage(),
                       transitionDuration: Duration.zero,
                       reverseTransitionDuration: Duration.zero,
                     ),
