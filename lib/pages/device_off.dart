@@ -17,7 +17,7 @@ import 'package:eggie2/utils/time_formatter.dart';
 
 
 Future<List<Map<String, dynamic>>> fetchLatestSleepLogs() async {
-  final response = await http.get(Uri.parse('${getBaseUrl()}/sleep-mode-format/1'));
+  final response = await http.get(Uri.parse('${getBaseUrl()}/sleep-mode-format/6'));
   if (response.statusCode == 200) {
     return List<Map<String, dynamic>>.from(jsonDecode(response.body));
   } else {
@@ -60,7 +60,7 @@ class _DeviceOffState extends State<DeviceOff> {
     final endDt = formatter.format(_todayDate.add(const Duration(days: 1)));
 
     final response = await http.get(Uri.parse(
-      '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt',
+      '${getBaseUrl()}/sleep-mode-format?device_id=6&start_dt=$startDt&end_dt=$endDt',
     ));
 
     if (response.statusCode == 200) {

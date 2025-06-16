@@ -168,7 +168,7 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
   // today-sleep-detail-data API 호출
   Future<void> _loadTodaySleepDetailData() async {
     try {
-      final babyId = 1;
+      final babyId = 6;
       final data = await SleepApiService.getTodaySleepDetailData(babyId, startDt: _selectedStartDt);
 
       // data is Map<String, dynamic>
@@ -243,13 +243,13 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const SizedBox(height: 24),
-            Center(
-              child: Image.asset(
-                "assets/images/baby_firstroll.png",
-                width: 180,
-                height: 180,
-              ),
-            ),
+            // Center(
+            //   child: Image.asset(
+            //     "assets/images/baby_firstroll.png",
+            //     width: 180,
+            //     height: 180,
+            //   ),
+            // ),
             const SizedBox(height: 24),
             _buildWidgetTitle(text: '오늘 수면 요약'),
             const SizedBox(height: 8),
@@ -1207,11 +1207,15 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
       // 밤잠 시간대: 20시~다음날 6시 (오후 8시~오전 6시)
 
       bool startInNap = startHour >= 6 && startHour < 20;
-      String sleepModeLabelForTitle = startInNap ? '낮잠' : '밤잠';
       bool endInNap = endHour >= 6 && endHour < 20;
 
       // 다음날로 넘어가는 경우 처리
       bool isOvernight = endHour < startHour;
+
+      // Logic for sleepTitle
+      final sleepMode = record['sleepMode'];
+      final sleepModeSeq = record['sleepModeSeq'];
+      final sleepTitle = (sleepMode == 'day' ? '낮잠' : '밤잠') + ' ' + (sleepModeSeq ?? '');
 
       if (isOvernight) {
         // 밤잠에서 시작해서 다음날 낮잠으로 넘어가는 경우 (예: 04:30 ~ 07:00)
@@ -1220,13 +1224,13 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
           if (endHour < 6) {
             // 완전히 밤잠 시간대 (예: 22:00 ~ 05:00)
             nightPortion.add({
-              'startTime': record['startTime']!,
-              'endTime': record['endTime']!,
-              'originalStartTime': record['startTime']!,
-              'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
-              'sleepMode': record['sleepMode']!,
-              'sleepModeSeq': record['sleepModeSeq']!,
-              'actualStartTime': record['startTime']!,
+              'startTime': record['startTime'] ?? '',
+              'endTime': record['endTime'] ?? '',
+              'originalStartTime': record['startTime'] ?? '',
+              'sleepTitle': record['sleepTitle'] ?? '알 수 없음',
+              'sleepMode': record['sleepMode'] ?? 'unknown',
+              'sleepModeSeq': record['sleepModeSeq'] ?? '',
+              'actualStartTime': record['startTime'] ?? '',
               'wakeCounts': record['wakeCounts'] ?? '',
               'isStartTruncated': false,
               'isEndTruncated': false,
@@ -1234,24 +1238,24 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
           } else {
             // 밤잠에서 낮잠으로 넘어감 (예: 04:30 ~ 07:00)
             nightPortion.add({
-              'startTime': record['startTime']!,
+              'startTime': record['startTime'] ?? '',
               'endTime': '06:00',
-              'originalStartTime': record['startTime']!,
-              'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
-              'sleepMode': record['sleepMode']!,
-              'sleepModeSeq': record['sleepModeSeq']!,
-              'actualStartTime': record['startTime']!,
+              'originalStartTime': record['startTime'] ?? '',
+              'sleepTitle': record['sleepTitle'] ?? '알 수 없음',
+              'sleepMode': record['sleepMode'] ?? 'unknown',
+              'sleepModeSeq': record['sleepModeSeq'] ?? '',
+              'actualStartTime': record['startTime'] ?? '',
               'isStartTruncated': false,
               'isEndTruncated': true,
             });
             napPortion.add({
               'startTime': '06:00',
-              'endTime': record['endTime']!,
-              'originalStartTime': record['startTime']!,
-              'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
-              'sleepMode': record['sleepMode']!,
-              'sleepModeSeq': record['sleepModeSeq']!,
-              'actualStartTime': record['startTime']!,
+              'endTime': record['endTime'] ?? '',
+              'originalStartTime': record['startTime'] ?? '',
+              'sleepTitle': record['sleepTitle'] ?? '알 수 없음',
+              'sleepMode': record['sleepMode'] ?? 'unknown',
+              'sleepModeSeq': record['sleepModeSeq'] ?? '',
+              'actualStartTime': record['startTime'] ?? '',
               'wakeCounts': record['wakeCounts'] ?? '',
               'isStartTruncated': true,
               'isEndTruncated': false,
@@ -1263,13 +1267,13 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
         if (startInNap && endInNap) {
           // 완전히 낮잠 시간대 (예: 06:28 ~ 08:22)
           napPortion.add({
-            'startTime': record['startTime']!,
-            'endTime': record['endTime']!,
-            'originalStartTime': record['startTime']!,
-            'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
-            'sleepMode': record['sleepMode']!,
-            'sleepModeSeq': record['sleepModeSeq']!,
-            'actualStartTime': record['startTime']!,
+            'startTime': record['startTime'] ?? '',
+            'endTime': record['endTime'] ?? '',
+            'originalStartTime': record['startTime'] ?? '',
+            'sleepTitle': record['sleepTitle'] ?? '알 수 없음',
+            'sleepMode': record['sleepMode'] ?? 'unknown',
+            'sleepModeSeq': record['sleepModeSeq'] ?? '',
+            'actualStartTime': record['startTime'] ?? '',
             'wakeCounts': record['wakeCounts'] ?? '',
             'isStartTruncated': false,
             'isEndTruncated': false,
@@ -1277,13 +1281,13 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
         } else if (!startInNap && !endInNap) {
           // 완전히 밤잠 시간대 (예: 21:30 ~ 23:00)
           nightPortion.add({
-            'startTime': record['startTime']!,
-            'endTime': record['endTime']!,
-            'originalStartTime': record['startTime']!,
-            'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
-            'sleepMode': record['sleepMode']!,
-            'sleepModeSeq': record['sleepModeSeq']!,
-            'actualStartTime': record['startTime']!,
+            'startTime': record['startTime'] ?? '',
+            'endTime': record['endTime'] ?? '',
+            'originalStartTime': record['startTime'] ?? '',
+            'sleepTitle': record['sleepTitle'] ?? '알 수 없음',
+            'sleepMode': record['sleepMode'] ?? 'unknown',
+            'sleepModeSeq': record['sleepModeSeq'] ?? '',
+            'actualStartTime': record['startTime'] ?? '',
             'wakeCounts': record['wakeCounts'] ?? '',
             'isStartTruncated': false,
             'isEndTruncated': false,
@@ -1291,24 +1295,24 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
         } else if (startInNap && !endInNap) {
           // 낮잠에서 밤잠으로 넘어감 (예: 19:45 ~ 20:30)
           napPortion.add({
-            'startTime': record['startTime']!,
+            'startTime': record['startTime'] ?? '',
             'endTime': '20:00',
-            'originalStartTime': record['startTime']!,
-            'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
-            'sleepMode': record['sleepMode']!,
-            'sleepModeSeq': record['sleepModeSeq']!,
-            'actualStartTime': record['startTime']!,
+            'originalStartTime': record['startTime'] ?? '',
+            'sleepTitle': record['sleepTitle'] ?? '알 수 없음',
+            'sleepMode': record['sleepMode'] ?? 'unknown',
+            'sleepModeSeq': record['sleepModeSeq'] ?? '',
+            'actualStartTime': record['startTime'] ?? '',
             'isStartTruncated': false,
             'isEndTruncated': true,
           });
           nightPortion.add({
             'startTime': '20:00',
-            'endTime': record['endTime']!,
-            'originalStartTime': record['startTime']!,
-            'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
-            'sleepMode': record['sleepMode']!,
-            'sleepModeSeq': record['sleepModeSeq']!,
-            'actualStartTime': record['startTime']!,
+            'endTime': record['endTime'] ?? '',
+            'originalStartTime': record['startTime'] ?? '',
+            'sleepTitle': record['sleepTitle'] ?? '알 수 없음',
+            'sleepMode': record['sleepMode'] ?? 'unknown',
+            'sleepModeSeq': record['sleepModeSeq'] ?? '',
+            'actualStartTime': record['startTime'] ?? '',
             'wakeCounts': record['wakeCounts'] ?? '',
             'isStartTruncated': true,
             'isEndTruncated': false,
@@ -1316,25 +1320,25 @@ class _TodaySleepLogPageState extends State<TodaySleepLogPage> {
         } else if (!startInNap && endInNap) {
           // 밤잠에서 낮잠으로 넘어감 (같은 날, 거의 없는 케이스)
           nightPortion.add({
-            'startTime': record['startTime']!,
+            'startTime': record['startTime'] ?? '',
             'endTime': '06:00',
-            'originalStartTime': record['startTime']!,
-            'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
-            'sleepMode': record['sleepMode']!,
-            'sleepModeSeq': record['sleepModeSeq']!,
-            'actualStartTime': record['startTime']!,
+            'originalStartTime': record['startTime'] ?? '',
+            'sleepTitle': record['sleepTitle'] ?? '알 수 없음',
+            'sleepMode': record['sleepMode'] ?? 'unknown',
+            'sleepModeSeq': record['sleepModeSeq'] ?? '',
+            'actualStartTime': record['startTime'] ?? '',
             'wakeCounts': record['wakeCounts'] ?? '',
             'isStartTruncated': false,
             'isEndTruncated': true,
           });
           napPortion.add({
             'startTime': '06:00',
-            'endTime': record['endTime']!,
-            'originalStartTime': record['startTime']!,
-            'sleepTitle': record['sleepTitle']!, // 원본 그대로 유지
-            'sleepMode': record['sleepMode']!,
-            'sleepModeSeq': record['sleepModeSeq']!,
-            'actualStartTime': record['startTime']!,
+            'endTime': record['endTime'] ?? '',
+            'originalStartTime': record['startTime'] ?? '',
+            'sleepTitle': record['sleepTitle'] ?? '알 수 없음',
+            'sleepMode': record['sleepMode'] ?? 'unknown',
+            'sleepModeSeq': record['sleepModeSeq'] ?? '',
+            'actualStartTime': record['startTime'] ?? '',
             'wakeCounts': record['wakeCounts'] ?? '',
             'isStartTruncated': true,
             'isEndTruncated': false,
@@ -1725,7 +1729,7 @@ class SleepApiService {
   // 오늘 수면 상세 데이터 API 서비스
   static Future<Map<String, dynamic>> getTodaySleepDetailData(int babyId, {String? startDt}) async {
     try {
-      String url = '${getBaseUrl()}/today-sleep-detail?baby_id=$babyId';
+      String url = '${getBaseUrl()}/today-sleep-detail-test?baby_id=$babyId';
       if (startDt != null) {
         url += '&start_dt=$startDt';
       }
@@ -1759,4 +1763,3 @@ class SleepApiService {
     }
   }
 }
-

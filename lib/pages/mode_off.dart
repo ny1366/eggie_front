@@ -94,7 +94,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
     setState(() {
       _hasFetchedAutoEnv = true;
     });
-    final url = Uri.parse('${getBaseUrl()}/detailed-history/1');
+    final url = Uri.parse('${getBaseUrl()}/detailed-history/6');
     try {
       final response = await http.get(url);
       if (response.statusCode == 200) {
@@ -175,7 +175,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
   // 수면 시작시간 insert하는 API 호출 함수
   Future<void> sendStartTime(DateTime startTime) async {
     final baseUrl = getBaseUrl();
-    final url = Uri.parse('$baseUrl/report/1');
+    final url = Uri.parse('$baseUrl/report/6');
 
     final response = await http.post(
       url,
@@ -1052,7 +1052,7 @@ class _ModeOffPageState extends State<ModeOffPage> {
     final endDt = formatter.format(today.add(const Duration(days: 1)));
 
     final response = await http.get(Uri.parse(
-        '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt'));
+        '${getBaseUrl()}/sleep-mode-format?device_id=6&start_dt=$startDt&end_dt=$endDt'));
 
     if (response.statusCode == 200) {
       final List<dynamic> logs = jsonDecode(response.body);

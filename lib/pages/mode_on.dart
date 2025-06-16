@@ -444,7 +444,7 @@ class _ModeOnPageState extends State<ModeOnPage> {
 
   // API 호출 함수: 종료시간과 duration 업데이트
   Future<void> updateEndTimeDuration(DateTime endTime) async {
-    final url = Uri.parse('${getBaseUrl()}/report/1/end');
+    final url = Uri.parse('${getBaseUrl()}/report/6/end');
 
     final response = await http.put(
       url,
@@ -890,7 +890,7 @@ class _ModeOnPageState extends State<ModeOnPage> {
   // 자동 환경값을 서버에서 불러오는 함수 (최신 낮잠/밤잠 환경값, 낮잠 우선)
   Future<Map<String, String>> _fetchAutoEnvValues() async {
     try {
-      final url = Uri.parse('${getBaseUrl()}/detailed-history/1');
+      final url = Uri.parse('${getBaseUrl()}/detailed-history/6');
       final response = await http.get(url);
 
       if (response.statusCode == 200) {
@@ -947,7 +947,7 @@ class _ModeOnPageState extends State<ModeOnPage> {
     final endDt = formatter.format(now.add(const Duration(days: 1)));
 
     final response = await http.get(Uri.parse(
-      '${getBaseUrl()}/sleep-mode-format?device_id=1&start_dt=$startDt&end_dt=$endDt'
+      '${getBaseUrl()}/sleep-mode-format?device_id=6&start_dt=$startDt&end_dt=$endDt'
     ));
 
     if (response.statusCode == 200) {

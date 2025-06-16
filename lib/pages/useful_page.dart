@@ -41,7 +41,7 @@ class SleepApiService {
   // Now backed by the today-sleep-detail API (not today-sleep-summary)
   static Future<TodaySleepData> getTodaySleepData(int babyId, {String? startDt}) async {
     try {
-      String url = '${getBaseUrl()}/today-sleep-detail?baby_id=$babyId';
+      String url = '${getBaseUrl()}/today-sleep-detail-test?baby_id=$babyId';
       if (startDt != null) {
         url += '&start_dt=$startDt';
       }
@@ -88,7 +88,7 @@ class _UsefulFunctionPageState extends State<UsefulFunctionPage> {
       });
 
       final prefs = await SharedPreferences.getInstance();
-      final babyId = prefs.getInt('baby_id') ?? 1;
+      final babyId = prefs.getInt('baby_id') ?? 6;
 
       // final startDt = '2024-09-16';
       final today = DateTime.now();
